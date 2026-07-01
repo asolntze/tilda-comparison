@@ -1,5 +1,6 @@
 // ============================================
-// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA / @asolntze
+// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA
+// Универсальная версия с автоопределением стилей
 // ============================================
 
 (function() {
@@ -9,26 +10,74 @@
         maxProducts: 6,
         storageKey: 'tilda_comparison_products',
         showOnlyDifferences: true,
-        debug: false,
-        colors: {
-            // Эти цвета используются JS только для уведомлений и плавающей кнопки,
-            // если для них нет CSS-правил. Основные стили должны быть в CSS файле.
-            primary: '#0F57E3',
-            accent: 'white',
-            text: '#111419'
-        }
+        debug: false
     };
 
     // Поддержка внешней конфигурации
     if (window.TildaComparisonConfig) {
         Object.assign(CONFIG, window.TildaComparisonConfig);
-        if (window.TildaComparisonConfig.colors) {
-            Object.assign(CONFIG.colors, window.TildaComparisonConfig.colors);
-        }
     }
 
     function log(message, data = null) {
         if (CONFIG.debug) console.log(`[Comparison Module] ${message}`, data || '');
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    // АВТООПРЕДЕЛЕНИЕ СТИЛЕЙ САЙТА
+    // Считывает стили кнопок и текста Тильды и применяет к модулю
+    // ═══════════════════════════════════════════════════════════════
+    function detectSiteStyles() {
+        const root = document.documentElement;
+        const styles = {};
+        
+        // 1. Ищем стандартную кнопку Тильды
+        const tildaBtn = document.querySelector('.t-btn, .t-submit, [class*="t-btn"]');
+        if (tildaBtn) {
+            const computed = getComputedStyle(tildaBtn);
+            // Берём цвет фона кнопки (если он не прозрачный)
+            const bgColor = computed.backgroundColor;
+            if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+                styles['--cmp-primary'] = bgColor;
+            }
+            // Скругление
+            const radius = computed.borderRadius;
+            if (radius && radius !== '0px') {
+                styles['--cmp-radius'] = radius;
+            }
+            // Шрифт
+            const font = computed.fontFamily;
+            if (font) {
+                styles['--cmp-font'] = font;
+            }
+            // Цвет текста на кнопке (для акцента)
+            const btnTextColor = computed.color;
+            if (btnTextColor) {
+                styles['--cmp-accent'] = btnTextColor;
+            }
+        }
+        
+        // 2. Ищем заголовок для цвета текста
+        const title = document.querySelector('.t-title, h1, h2, .t-name');
+        if (title) {
+            const computed = getComputedStyle(title);
+            const textColor = computed.color;
+            if (textColor && textColor !== 'rgb(0, 0, 0)') {
+                styles['--cmp-text'] = textColor;
+            }
+            if (!styles['--cmp-font']) {
+                styles['--cmp-font'] = computed.fontFamily;
+            }
+        }
+        
+        // 3. Применяем только если пользователь не задал свои значения
+        for (const [prop, value] of Object.entries(styles)) {
+            const current = getComputedStyle(root).getPropertyValue(prop).trim();
+            // Если переменная не задана или равна 'inherit' — применяем найденное значение
+            if (!current || current === 'inherit') {
+                root.style.setProperty(prop, value);
+                log(`Автоопределено: ${prop} = ${value}`);
+            }
+        }
     }
 
     function normalizeString(str) {
@@ -53,7 +102,8 @@
 
         init() {
             log('Инициализация модуля сравнения');
-            // Функция injectAllStyles() удалена! Стили теперь подключаются отдельно.
+            // Автоопределяем стили сайта
+            detectSiteStyles();
 
             this.waitForProductCards().then(() => {
                 log('Карточки товаров найдены, добавляем кнопки');
@@ -382,7 +432,7 @@
             notification.className = `comparison-notification comparison-notification--${type}`;
             notification.textContent = message;
             document.body.appendChild(notification);
-            setTimeout(() => notification.classList.add('show'), 10);
+            setTimeout(() => notification.classList.add('show'), 10;
             setTimeout(() => { notification.classList.remove('show'); setTimeout(() => notification.remove(), 300); }, 3000);
         }
 
