@@ -11,24 +11,18 @@
    Пользователь может переопределить их в :root своего сайта
    ══════════════════════════════════════════════════════════════ */
 :root {
-    /* Основные цвета */
-    --cmp-primary: inherit;
+    --cmp-primary: #0F57E3;
     --cmp-primary-fallback: #0F57E3;
     --cmp-accent: #ffffff;
-    --cmp-text: inherit;
-    --cmp-text-fallback: #111419;  /* Тёмный цвет по умолчанию */
+    --cmp-text: #111419;
+    --cmp-text-fallback: #111419;
     --cmp-border: #e8e8e8;
     --cmp-bg: #ffffff;
-    
-    /* Скругления */
-    --cmp-radius: inherit;
+    --cmp-radius: 6px;
     --cmp-radius-fallback: 6px;
     --cmp-radius-round: 50%;
-    
-    /* Шрифт */
-    --cmp-font: inherit;
+    --cmp-font: Arial, sans-serif;
 }
-
 /* ═══════════════════════════════════════════════════════════════
    БАЗОВЫЕ СТИЛИ С НАСЛЕДОВАНИЕМ
    ═══════════════════════════════════════════════════════════════ */
