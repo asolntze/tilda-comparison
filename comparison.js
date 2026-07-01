@@ -5,12 +5,19 @@
 (function() {
     'use strict';
 
+    //const CONFIG = {
+    //    maxProducts: 6,
+    //    storageKey: 'tilda_comparison_products',
+    //    showOnlyDifferences: true,
+    //    debug: false
+    //};
+
     const CONFIG = {
-        maxProducts: 6,
-        storageKey: 'tilda_comparison_products',
-        showOnlyDifferences: true,
-        debug: false
-    };
+    maxProducts: 6,
+    storageKey: 'tilda_comparison_products',
+    showOnlyDifferences: false,
+    debug: true
+};
 
     if (window.TildaComparisonConfig) {
         Object.assign(CONFIG, window.TildaComparisonConfig);
@@ -254,25 +261,99 @@
             } catch (e) { log('Ошибка извлечения данных товара:', e); return null; }
         }
 
-        extractCharacteristics(card) {
-            const characteristics = {};
-            const charSelectors = ['.js-store-prod-all-charcs', '.js-catalog-prod-all-charcs', '[class*="charcs"]', '[class*="characteristics"]', '[class*="specs"]', '[class*="features"]', '.t-store__card__chars', '.t758__chars', '.t706__chars'];
-            for (const selector of charSelectors) {
-                const charsContainer = card.querySelector(selector);
-                if (charsContainer) {
-                    charsContainer.querySelectorAll('p').forEach(p => { const text = p.textContent.trim(); const parts = text.split(':'); if (parts.length >= 2) characteristics[parts[0].trim()] = parts.slice(1).join(':').trim(); });
-                    charsContainer.querySelectorAll('[class*="char"], [class*="item"], tr').forEach(item => { const spans = item.querySelectorAll('span, td'); if (spans.length >= 2) { const key = spans[0].textContent.trim(); const value = spans[1].textContent.trim(); if (key && value) characteristics[key] = value; } });
-                    charsContainer.querySelectorAll('dt').forEach(dt => { const dd = dt.nextElementSibling; if (dd && dd.tagName === 'DD') characteristics[dt.textContent.trim()] = dd.textContent.trim(); });
-                    if (Object.keys(characteristics).length > 0) break;
-                }
+extractCharacteristics(card) {
+    const characteristics = {};
+    
+    // 1. Ищем в скрытых элементах (для Тильды)
+    const hiddenElements = card.querySelectorAll('[style*="display: none"], [style*="visibility: hidden"], .t-hidden');
+    hiddenElements.forEach((el, index) => {
+        const text = el.textContent.trim();
+        if (text && text.length > 1) {
+            // Пробуем определить тип характеристики
+            if (/^\d+[,\s\d]*$/.test(text)) {
+                // Это размеры (только цифры)
+                characteristics['Размер'] = text;
+            } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || text.includes('розов') || text.includes('красн') || text.includes('син')) {
+                // Это цвета
+                characteristics['Цвет'] = text;
+            } else if (text === 'р.' || text === 'см' || text === 'кг') {
+                // Единицы измерения — пропускаем
+            } else {
+                // Остальное
+                characteristics[`Характеристика ${index + 1}`] = text;
             }
-           if (Object.keys(characteristics).length === 0) {
-    card.querySelectorAll('[data-char-name], [data-spec-name]').forEach(el => { const name = el.getAttribute('data-char-name') || el.getAttribute('data-spec-name'); const value = el.textContent.trim() || el.getAttribute('data-char-value') || el.getAttribute('data-spec-value'); if (name && value) characteristics[name] = value; });
-    card.querySelectorAll('table').forEach(table => { table.querySelectorAll('tr').forEach(row => { const cells = row.querySelectorAll('td, th'); if (cells.length >= 2) { const key = cells[0].textContent.trim(); const value = cells[1].textContent.trim(); if (key && value && !key.includes('Цена')) characteristics[key] = value; } }); });
-    card.querySelectorAll('ul, ol').forEach(list => { list.querySelectorAll('li').forEach(item => { const text = item.textContent.trim(); const parts = text.split(':'); if (parts.length >= 2) characteristics[parts[0].trim()] = parts.slice(1).join(':').trim(); }); });
-}
-            return characteristics;
         }
+    });
+    
+    // 2. Ищем в data-атрибутах
+    const dataAttrs = card.attributes;
+    for (let attr of dataAttrs) {
+        if (attr.name.startsWith('data-product-') && !attr.name.includes('uid') && !attr.name.includes('id') && !attr.name.includes('url') && !attr.name.includes('price') && !attr.name.includes('img') && !attr.name.includes('label') && !attr.name.includes('pack')) {
+            const name = attr.name.replace('data-product-', '').replace(/-/g, ' ');
+            const value = attr.value;
+            if (value && value.length > 0 && value !== '0' && !value.startsWith('http')) {
+                characteristics[name.charAt(0).toUpperCase() + name.slice(1)] = value;
+            }
+        }
+    }
+    
+    // 3. Стандартные селекторы Тильды
+    const charSelectors = ['.js-store-prod-all-charcs', '.js-catalog-prod-all-charcs', '[class*="charcs"]', '[class*="characteristics"]', '[class*="specs"]', '[class*="features"]', '.t-store__card__chars', '.t758__chars', '.t706__chars'];
+    for (const selector of charSelectors) {
+        const charsContainer = card.querySelector(selector);
+        if (charsContainer) {
+            charsContainer.querySelectorAll('p').forEach(p => {
+                const text = p.textContent.trim();
+                const parts = text.split(':');
+                if (parts.length >= 2) {
+                    characteristics[parts[0].trim()] = parts.slice(1).join(':').trim();
+                }
+            });
+            charsContainer.querySelectorAll('[class*="char"], [class*="item"], tr').forEach(item => {
+                const spans = item.querySelectorAll('span, td');
+                if (spans.length >= 2) {
+                    const key = spans[0].textContent.trim();
+                    const value = spans[1].textContent.trim();
+                    if (key && value) characteristics[key] = value;
+                }
+            });
+            charsContainer.querySelectorAll('dt').forEach(dt => {
+                const dd = dt.nextElementSibling;
+                if (dd && dd.tagName === 'DD') {
+                    characteristics[dt.textContent.trim()] = dd.textContent.trim();
+                }
+            });
+            if (Object.keys(characteristics).length > 0) break;
+        }
+    }
+    
+    // 4. Ищем в таблицах
+    if (Object.keys(characteristics).length === 0) {
+        card.querySelectorAll('table').forEach(table => {
+            table.querySelectorAll('tr').forEach(row => {
+                const cells = row.querySelectorAll('td, th');
+                if (cells.length >= 2) {
+                    const key = cells[0].textContent.trim();
+                    const value = cells[1].textContent.trim();
+                    if (key && value && !key.includes('Цена')) characteristics[key] = value;
+                }
+            });
+        });
+        
+        // 5. Ищем в списках
+        card.querySelectorAll('ul, ol').forEach(list => {
+            list.querySelectorAll('li').forEach(item => {
+                const text = item.textContent.trim();
+                const parts = text.split(':');
+                if (parts.length >= 2) {
+                    characteristics[parts[0].trim()] = parts.slice(1).join(':').trim();
+                }
+            });
+        });
+    }
+    
+    return characteristics;
+}
 
         findCardByUid(uid) {
             const cards = this.findProductCards();
