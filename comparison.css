@@ -1,65 +1,25 @@
 /* ============================================
    МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA
-   Универсальные стили с наследованием
-   
-   Все параметры настраиваются через CSS-переменные.
-   По умолчанию наследуются от сайта.
    ============================================ */
 
-/* ═══════════════════════════════════════════════════════════════
-   ПЕРЕМЕННЫЕ МОДУЛЯ
-   Пользователь может переопределить их в :root своего сайта
-   ══════════════════════════════════════════════════════════════ */
 :root {
     --cmp-primary: #0F57E3;
-    --cmp-primary-fallback: #0F57E3;
     --cmp-accent: #ffffff;
-  /*  --cmp-text: #111419;
-    --cmp-text-fallback: #111419; */
+    --cmp-text: #111419;
     --cmp-border: #e8e8e8;
     --cmp-bg: #ffffff;
     --cmp-radius: 6px;
-    --cmp-radius-fallback: 6px;
     --cmp-radius-round: 50%;
     --cmp-font: Arial, sans-serif;
 }
-/* ═══════════════════════════════════════════════════════════════
-   БАЗОВЫЕ СТИЛИ С НАСЛЕДОВАНИЕМ
-   ═══════════════════════════════════════════════════════════════ */
 
-/* Все элементы модуля наследуют шрифт от сайта */
-.comparison-btn,
-.comparison-table,
-.comparison-table th,
-.comparison-table td,
-.comparison-popup__header h2,
-.comparison-popup__toggle,
-.comparison-popup__toggle span,
-.comparison-popup__clear,
-.comparison-table__add-to-cart,
-.comparison-table__add-to-cart span,
-.comparison-table__remove,
-.comparison-table__remove span,
-.comparison-floating-btn__tooltip,
-.comparison-empty,
-.comparison-page__header h1,
-.comparison-table__product-title,
-.comparison-table__product-descr,
-.comparison-table__product-price,
-.comparison-notification {
-    font-family: var(--cmp-font);
-}
-
-/* ══════════════════════════════════════════════════════════════
-   КНОПКА СРАВНЕНИЯ НА КАРТОЧКЕ
-   ═══════════════════════════════════════════════════════════════ */
 .comparison-btn {
     position: absolute;
     top: 10px;
     right: 10px;
     z-index: 10;
-    background: var(--cmp-bg);
-    color: var(--cmp-primary, var(--cmp-primary-fallback));
+    background: white;
+    color: var(--cmp-primary);
     border: 1px solid var(--cmp-border);
     width: 40px;
     height: 40px;
@@ -69,21 +29,17 @@
     align-items: center;
     justify-content: center;
     padding: 0;
-    transition: all 0.2s ease;
 }
 .comparison-btn.active {
-    background: var(--cmp-primary, var(--cmp-primary-fallback));
+    background: var(--cmp-primary);
     color: var(--cmp-accent);
-    border-color: var(--cmp-primary, var(--cmp-primary-fallback));
+    border-color: var(--cmp-primary);
 }
 .comparison-btn svg {
     width: 20px;
     height: 20px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ПЛАВАЮЩАЯ КНОПКА
-   ═══════════════════════════════════════════════════════════════ */
 .comparison-floating-btn {
     position: fixed;
     bottom: 30px;
@@ -99,7 +55,7 @@
 .comparison-floating-btn__content {
     width: 60px;
     height: 60px;
-    background: var(--cmp-primary, var(--cmp-primary-fallback));
+    background: var(--cmp-primary);
     border-radius: var(--cmp-radius-round);
     display: flex;
     align-items: center;
@@ -114,8 +70,8 @@
     top: -5px;
     right: -5px;
     background: var(--cmp-accent);
-    border: 2px solid var(--cmp-primary, var(--cmp-primary-fallback));
-    color: var(--cmp-primary, var(--cmp-primary-fallback));
+    border: 2px solid var(--cmp-primary);
+    color: var(--cmp-primary);
     width: 24px;
     height: 24px;
     border-radius: var(--cmp-radius-round);
@@ -132,7 +88,7 @@
     background: rgba(0,0,0,0.85);
     color: white;
     padding: 8px 12px;
-    border-radius: var(--cmp-radius, var(--cmp-radius-fallback));
+    border-radius: var(--cmp-radius);
     font-size: 13px;
     white-space: nowrap;
     opacity: 0;
@@ -143,9 +99,6 @@
     opacity: 1;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   МОДАЛЬНОЕ ОКНО СРАВНЕНИЯ
-   ═══════════════════════════════════════════════════════════════ */
 .comparison-popup {
     position: fixed;
     top: 0;
@@ -194,7 +147,7 @@
 }
 .comparison-popup__header h2 {
     margin: 0;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
     font-size: 24px;
     font-weight: 600;
 }
@@ -203,7 +156,7 @@
     border: none;
     font-size: 32px;
     cursor: pointer;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
     line-height: 1;
     padding: 0;
     width: 32px;
@@ -211,7 +164,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--cmp-radius, var(--cmp-radius-fallback));
+    border-radius: var(--cmp-radius);
 }
 .comparison-popup__body {
     flex: 1;
@@ -233,7 +186,7 @@
     gap: 8px;
     cursor: pointer;
     font-size: 14px;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
 }
 .comparison-popup__toggle input {
     width: 18px;
@@ -241,11 +194,11 @@
     cursor: pointer;
 }
 .comparison-popup__clear {
-    background: var(--cmp-primary, var(--cmp-primary-fallback));
+    background: var(--cmp-primary);
     color: var(--cmp-accent);
     border: none;
     padding: 10px 20px;
-    border-radius: var(--cmp-radius, var(--cmp-radius-fallback));
+    border-radius: var(--cmp-radius);
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -257,9 +210,6 @@
     font-size: 18px;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ТАБЛИЦА СРАВНЕНИЯ
-   ═══════════════════════════════════════════════════════════════ */
 .comparison-table-wrapper {
     overflow-x: auto;
 }
@@ -273,12 +223,13 @@
     padding: 15px;
     text-align: left;
     border-bottom: 1px solid var(--cmp-border);
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
 }
 .comparison-table__label {
     width: 200px;
     font-weight: 600;
     background: #f8f9fa;
+    color: var(--cmp-text);
 }
 .comparison-table__product {
     min-width: 220px;
@@ -308,7 +259,7 @@
 }
 .comparison-table__product-title {
     font-weight: 600;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
     margin-bottom: 10px;
     font-size: 16px;
     text-align: left;
@@ -324,7 +275,7 @@
 .comparison-table__product-price {
     font-size: 18px;
     font-weight: 700;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
     margin-bottom: 15px;
     text-align: left;
 }
@@ -339,10 +290,10 @@
     background: #f0f0f0;
     border: none;
     padding: 8px 14px;
-    border-radius: var(--cmp-radius, var(--cmp-radius-fallback));
+    border-radius: var(--cmp-radius);
     cursor: pointer;
     font-size: 13px;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
     display: flex;
     align-items: center;
     gap: 6px;
@@ -353,10 +304,10 @@
     height: 14px;
 }
 .comparison-table__add-to-cart {
-    background: var(--cmp-primary, var(--cmp-primary-fallback));
+    background: var(--cmp-primary);
     border: none;
     padding: 8px 14px;
-    border-radius: var(--cmp-radius, var(--cmp-radius-fallback));
+    border-radius: var(--cmp-radius);
     cursor: pointer;
     font-size: 13px;
     color: var(--cmp-accent);
@@ -374,22 +325,19 @@
 }
 .comparison-table__char-name {
     font-weight: 600;
-    color: var(--cmp-text, #111419);
     background: #f8f9fa;
+    color: var(--cmp-text);
 }
 .comparison-table__char-value {
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   УВЕДОМЛЕНИЯ
-   ═══════════════════════════════════════════════════════════════ */
 .comparison-notification {
     position: fixed;
     top: 20px;
     right: 20px;
     padding: 15px 25px;
-    border-radius: var(--cmp-radius, var(--cmp-radius-fallback));
+    border-radius: var(--cmp-radius);
     color: white;
     font-size: 14px;
     z-index: 999999;
@@ -405,11 +353,8 @@
 .comparison-notification--success { background: #27ae60; }
 .comparison-notification--error { background: #e74c3c; }
 .comparison-notification--warning { background: #f39c12; }
-.comparison-notification--info { background: var(--cmp-primary, var(--cmp-primary-fallback)); }
+.comparison-notification--info { background: var(--cmp-primary); }
 
-/* ═══════════════════════════════════════════════════════════════
-   СТРАНИЦА СРАВНЕНИЯ
-   ═══════════════════════════════════════════════════════════════ */
 .comparison-page {
     max-width: 1400px;
     margin: 0 auto;
@@ -425,14 +370,11 @@
 }
 .comparison-page__header h1 {
     margin: 0;
-    color: var(--cmp-text, #111419);
+    color: var(--cmp-text);
     font-size: 32px;
     font-weight: 600;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   АДАПТИВ
-   ══════════════════════════════════════════════════════════════ */
 @media (max-width: 768px) {
     .comparison-popup__content {
         max-width: 95%;
