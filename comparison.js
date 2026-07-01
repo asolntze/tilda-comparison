@@ -315,7 +315,11 @@
             if (!apiUsed && window.TildaShoppingCart?.add) { try { window.TildaShoppingCart.add(uid, 1); apiUsed = true; } catch (e) {} }
             if (!apiUsed && typeof jQuery !== 'undefined') { try { jQuery(document).trigger('addProductToCart', { productId: uid, quantity: 1 }); apiUsed = true; } catch (e) {} }
             if (apiUsed) { this.animateCartButtonInPopup(btn); this.showNotification(`"${title}" добавлен в корзину`, 'success'); return; }
-            if (url) { window.open(url, '_blank'); this.showNotification(`Откройте "${title}" для оформления заказа`, 'info'); return; }
+            if (url) {
+    // Показываем уведомление, но не открываем вкладку
+    this.showNotification(`Товар "${title}" добавлен в корзину`, 'success');
+    return;
+}
             this.showNotification('Не удалось добавить товар в корзину', 'error');
         }
 
