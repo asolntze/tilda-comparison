@@ -266,11 +266,11 @@
                     if (Object.keys(characteristics).length > 0) break;
                 }
             }
-            if (Object.keys(characteristics).length === 0) {
-                card.querySelectorAll('[data-char-name], [data-spec-name]').forEach(el => { const name = el.getAttribute('data-char-name') || el.getAttribute('data-spec-name'); const value = el.textContent.trim() || el.getAttribute('data-char-value') || el.getAttribute('data-spec-value'); if (name && value) characteristics[name] = value; });
-                card.querySelectorAll('table').forEach(table => { table.querySelectorAll('tr').forEach(row => { const cells = row.querySelectorAll('td, th'); if (cells.length >= 2) { const key = cells[0].textContent.trim(); const value = cells[1].textContent.trim(); if (key && value && !key.includes('Цена')) characteristics[key] = value; } }); });
-                card.querySelectorAll('ul, ol').forEach(list => { list.querySelectorAll('li').forEach(item => { const text = item.textContent.trim(); const parts = text.split(':'); if (parts.length >= 2) characteristics[parts[0].trim()] = parts.slice(1).join(':').trim(); } }); });
-            }
+           if (Object.keys(characteristics).length === 0) {
+    card.querySelectorAll('[data-char-name], [data-spec-name]').forEach(el => { const name = el.getAttribute('data-char-name') || el.getAttribute('data-spec-name'); const value = el.textContent.trim() || el.getAttribute('data-char-value') || el.getAttribute('data-spec-value'); if (name && value) characteristics[name] = value; });
+    card.querySelectorAll('table').forEach(table => { table.querySelectorAll('tr').forEach(row => { const cells = row.querySelectorAll('td, th'); if (cells.length >= 2) { const key = cells[0].textContent.trim(); const value = cells[1].textContent.trim(); if (key && value && !key.includes('Цена')) characteristics[key] = value; } }); });
+    card.querySelectorAll('ul, ol').forEach(list => { list.querySelectorAll('li').forEach(item => { const text = item.textContent.trim(); const parts = text.split(':'); if (parts.length >= 2) characteristics[parts[0].trim()] = parts.slice(1).join(':').trim(); }); }); });
+}
             return characteristics;
         }
 
