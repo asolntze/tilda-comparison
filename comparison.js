@@ -46,16 +46,16 @@
  //   }
     
     // 2. НЕ наследуем цвет текста! Всегда используем тёмный для белого фона попапа
-    styles['--cmp-text'] = '#111419';
+//    styles['--cmp-text'] = '#111419';
     
     // 3. Применяем
-    for (const [prop, value] of Object.entries(styles)) {
-        const current = getComputedStyle(root).getPropertyValue(prop).trim();
-        if (!current || current === 'inherit') {
-            root.style.setProperty(prop, value);
-        }
-    }
-}
+ //   for (const [prop, value] of Object.entries(styles)) {
+ //       const current = getComputedStyle(root).getPropertyValue(prop).trim();
+ //       if (!current || current === 'inherit') {
+ //           root.style.setProperty(prop, value);
+ //       }
+ //   }
+// }
 
     function normalizeString(str) {
         if (str === undefined || str === null) return '';
