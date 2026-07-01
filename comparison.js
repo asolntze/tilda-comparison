@@ -28,50 +28,34 @@
     }
 
     function detectSiteStyles() {
-        const root = document.documentElement;
-        const styles = {};
-        
-        const tildaBtn = document.querySelector('.t-btn, .t-submit, [class*="t-btn"]');
-        if (tildaBtn) {
-            const computed = getComputedStyle(tildaBtn);
-            const bgColor = computed.backgroundColor;
-            if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-                styles['--cmp-primary'] = bgColor;
-            }
-            const radius = computed.borderRadius;
-            if (radius && radius !== '0px') {
-                styles['--cmp-radius'] = radius;
-            }
-            const font = computed.fontFamily;
-            if (font) {
-                styles['--cmp-font'] = font;
-            }
-            const btnTextColor = computed.color;
-            if (btnTextColor) {
-                styles['--cmp-accent'] = btnTextColor;
-            }
+    const root = document.documentElement;
+    const styles = {};
+    
+    // 1. Ищем кнопку для цвета акцента
+    const tildaBtn = document.querySelector('.t-btn, .t-submit, [class*="t-btn"]');
+    if (tildaBtn) {
+        const computed = getComputedStyle(tildaBtn);
+        const bgColor = computed.backgroundColor;
+        if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+            styles['--cmp-primary'] = bgColor;
         }
-        
-        const title = document.querySelector('.t-title, h1, h2, .t-name');
-        if (title) {
-            const computed = getComputedStyle(title);
-            const textColor = computed.color;
-            if (textColor && textColor !== 'rgb(0, 0, 0)') {
-                styles['--cmp-text'] = textColor;
-            }
-            if (!styles['--cmp-font']) {
-                styles['--cmp-font'] = computed.fontFamily;
-            }
-        }
-        
-        for (const [prop, value] of Object.entries(styles)) {
-            const current = getComputedStyle(root).getPropertyValue(prop).trim();
-            if (!current || current === 'inherit') {
-                root.style.setProperty(prop, value);
-                log(`Автоопределено: ${prop} = ${value}`);
-            }
+        const radius = computed.borderRadius;
+        if (radius && radius !== '0px') {
+            styles['--cmp-radius'] = radius;
         }
     }
+    
+    // 2. НЕ наследуем цвет текста! Всегда используем тёмный для белого фона попапа
+    styles['--cmp-text'] = '#111419';
+    
+    // 3. Применяем
+    for (const [prop, value] of Object.entries(styles)) {
+        const current = getComputedStyle(root).getPropertyValue(prop).trim();
+        if (!current || current === 'inherit') {
+            root.style.setProperty(prop, value);
+        }
+    }
+}
 
     function normalizeString(str) {
         if (str === undefined || str === null) return '';
