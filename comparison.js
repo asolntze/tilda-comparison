@@ -263,27 +263,22 @@
 
 extractCharacteristics(card) {
     const characteristics = {};
-    
-    // 1. Ищем в скрытых элементах (для Тильды)
-    const hiddenElements = card.querySelectorAll('[style*="display: none"], [style*="visibility: hidden"], .t-hidden');
-    hiddenElements.forEach((el, index) => {
-        const text = el.textContent.trim();
-        if (text && text.length > 1) {
-            // Пробуем определить тип характеристики
-            if (/^\d+[,\s\d]*$/.test(text)) {
-                // Это размеры (только цифры)
-                characteristics['Размер'] = text;
-            } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || text.includes('розов') || text.includes('красн') || text.includes('син')) {
-                // Это цвета
-                characteristics['Цвет'] = text;
-            } else if (text === 'р.' || text === 'см' || text === 'кг') {
-                // Единицы измерения — пропускаем
-            } else {
-                // Остальное
-                characteristics[`Характеристика ${index + 1}`] = text;
-            }
+    // ПРОВЕРКА СКРЫТЫХ ЭЛЕМЕНТОВ (для Тильды)
+const hiddenElements = card.querySelectorAll('[style*="display: none"], [style*="visibility: hidden"]');
+hiddenElements.forEach((el, index) => {
+    const text = el.textContent.trim();
+    if (text && text.length > 2 && text !== 'р.') {
+        // Определяем тип характеристики
+        if (/^\d+[,\s\d]*$/.test(text)) {
+            characteristics['Размер'] = text;
+        } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || text.includes('розов') || text.includes('красн') || text.includes('син') || text.includes('бел') || text.includes('черн')) {
+            characteristics['Цвет'] = text;
+        } else {
+            characteristics[`Характеристика ${index + 1}`] = text;
         }
-    });
+    }
+});
+    
     
     // 2. Ищем в data-атрибутах
     const dataAttrs = card.attributes;
