@@ -27,23 +27,23 @@
         if (CONFIG.debug) console.log(`[Comparison Module] ${message}`, data || '');
     }
 
-    function detectSiteStyles() {
-    const root = document.documentElement;
-    const styles = {};
+ //   function detectSiteStyles() {
+ //   const root = document.documentElement;
+ //   const styles = {};
     
     // 1. Ищем кнопку для цвета акцента
-    const tildaBtn = document.querySelector('.t-btn, .t-submit, [class*="t-btn"]');
-    if (tildaBtn) {
-        const computed = getComputedStyle(tildaBtn);
-        const bgColor = computed.backgroundColor;
-        if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
-            styles['--cmp-primary'] = bgColor;
-        }
-        const radius = computed.borderRadius;
-        if (radius && radius !== '0px') {
-            styles['--cmp-radius'] = radius;
-        }
-    }
+ //   const tildaBtn = document.querySelector('.t-btn, .t-submit, [class*="t-btn"]');
+ //   if (tildaBtn) {
+ //       const computed = getComputedStyle(tildaBtn);
+ //       const bgColor = computed.backgroundColor;
+ //       if (bgColor && bgColor !== 'rgba(0, 0, 0, 0)' && bgColor !== 'transparent') {
+ //           styles['--cmp-primary'] = bgColor;
+ //       }
+ //       const radius = computed.borderRadius;
+ //       if (radius && radius !== '0px') {
+ //           styles['--cmp-radius'] = radius;
+ //       }
+ //   }
     
     // 2. НЕ наследуем цвет текста! Всегда используем тёмный для белого фона попапа
     styles['--cmp-text'] = '#111419';
