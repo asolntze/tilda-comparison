@@ -1,6 +1,5 @@
 // ============================================
-// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA
-// JS-логика (подключается с GitHub)
+// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA / @asolntze
 // ============================================
 
 (function() {
@@ -12,10 +11,10 @@
         showOnlyDifferences: true,
         debug: false,
         colors: {
+            // Эти цвета используются JS только для уведомлений и плавающей кнопки,
+            // если для них нет CSS-правил. Основные стили должны быть в CSS файле.
             primary: '#0F57E3',
             accent: 'white',
-            cartColor: '#0F57E3',
-            border: '#e8e8e8',
             text: '#111419'
         }
     };
@@ -30,22 +29,6 @@
 
     function log(message, data = null) {
         if (CONFIG.debug) console.log(`[Comparison Module] ${message}`, data || '');
-    }
-
-    function applyCSSVariables() {
-        const root = document.documentElement;
-        const mapping = {
-            '--comparison-primary': CONFIG.colors.primary,
-            '--comparison-accent': CONFIG.colors.accent,
-            '--comparison-cart-color': CONFIG.colors.cartColor,
-            '--comparison-border': CONFIG.colors.border,
-            '--comparison-text': CONFIG.colors.text
-        };
-        for (const [prop, value] of Object.entries(mapping)) {
-            if (!getComputedStyle(root).getPropertyValue(prop).trim()) {
-                root.style.setProperty(prop, value);
-            }
-        }
     }
 
     function normalizeString(str) {
@@ -70,7 +53,7 @@
 
         init() {
             log('Инициализация модуля сравнения');
-            applyCSSVariables();
+            // Функция injectAllStyles() удалена! Стили теперь подключаются отдельно.
 
             this.waitForProductCards().then(() => {
                 log('Карточки товаров найдены, добавляем кнопки');
@@ -86,7 +69,6 @@
                 }, 2000);
             });
 
-            // Рендерим таблицу на отдельной странице только если есть контейнер
             const comparisonContainer = document.querySelector('.comparison-page-container');
             if (comparisonContainer) {
                 this.renderComparisonTable(comparisonContainer);
