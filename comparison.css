@@ -11,21 +11,21 @@
    Пользователь может переопределить их в :root своего сайта
    ══════════════════════════════════════════════════════════════ */
 :root {
-    /* Основные цвета (по умолчанию наследуются) */
-    --cmp-primary: inherit;      /* Цвет кнопок и акцентов */
-    --cmp-primary-fallback: #0F57E3;  /* Фолбэк, если inherit не работает */
-    --cmp-accent: #ffffff;       /* Цвет текста на акцентном фоне */
-    --cmp-text: inherit;         /* Цвет текста */
-    --cmp-text-fallback: #111419;
-    --cmp-border: #e8e8e8;       /* Цвет границ */
-    --cmp-bg: #ffffff;           /* Фон попапа */
+    /* Основные цвета */
+    --cmp-primary: inherit;
+    --cmp-primary-fallback: #0F57E3;
+    --cmp-accent: #ffffff;
+    --cmp-text: inherit;
+    --cmp-text-fallback: #111419;  /* Тёмный цвет по умолчанию */
+    --cmp-border: #e8e8e8;
+    --cmp-bg: #ffffff;
     
-    /* Скругления (наследуются от кнопок сайта) */
+    /* Скругления */
     --cmp-radius: inherit;
     --cmp-radius-fallback: 6px;
     --cmp-radius-round: 50%;
     
-    /* Шрифт (наследуется от body) */
+    /* Шрифт */
     --cmp-font: inherit;
 }
 
