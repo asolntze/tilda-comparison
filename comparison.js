@@ -312,16 +312,6 @@ function universalSplit(str) {
         }
 
 
-// Универсальная функция разделения склеенного текста
-function universalSplit(str) {
-    if (!str) return str;
-    if (str.includes(', ')) return str; // Уже разделено
-    
-    // Разбиваем на: кириллические слова, латинские слова, числа
-    const parts = str.match(/[а-яё]+|[a-z]+|\d+/gi);
-    return parts && parts.length > 1 ? parts.join(', ') : str;
-}
-
 extractCharacteristics(card) {
     const characteristics = {};
     
