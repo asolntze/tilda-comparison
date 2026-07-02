@@ -34,22 +34,60 @@
     }
 
     // Загрузка характеристик со страницы товара
-    async function loadCharacteristicsFromPage(productUrl) {
-        try {
-            const response = await fetch(productUrl);
-            if (!response.ok) return {};
-            
-            const html = await response.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            
-            const charsBlock = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
-            if (!charsBlock) return {};
-            
-            const characteristics = {};
-            
-            // Ищем все <li> элементы
-            charsBlock.querySelectorAll('li').forEach(li => {
+async function loadCharacteristicsFromPage(productUrl) {
+    try {
+        const response = await fetch(productUrl);
+        if (!response.ok) return {};
+        
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        const characteristics = {};
+        
+        // 1. Ищем в json_chars (data-атрибут)
+        const scriptEl = doc.querySelector('script');
+        if (scriptEl) {
+            const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
+            const jsonMatch = scriptContent.match(/"json_chars":"([^"]+)"/);
+            if (jsonMatch) {
+                try {
+                    const jsonStr = jsonMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                    const jsonChars = JSON.parse(jsonStr);
+                    if (Array.isArray(jsonChars)) {
+                        jsonChars.forEach(char => {
+                            if (char.title && char.value) {
+                                characteristics[char.title] = char.value;
+                            }
+                        });
+                        console.log('[Comparison] Загружено из json_chars:', characteristics);
+                    }
+                } catch (e) {
+                    console.log('[Comparison] Ошибка парсинга json_chars:', e);
+                }
+            }
+        }
+        
+        // 2. Ищем в блоке .js-catalog-prod-all-charcs (для <p>вес: 50г</p>)
+        const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
+        if (charsBlock) {
+            charsBlock.querySelectorAll('p').forEach(p => {
+                const text = p.textContent.trim();
+                const colonIndex = text.indexOf(':');
+                if (colonIndex > 0 && colonIndex < 50) {
+                    const name = text.substring(0, colonIndex).trim();
+                    const value = text.substring(colonIndex + 1).trim();
+                    if (name && value && name.length < 100) {
+                        characteristics[name] = value;
+                    }
+                }
+            });
+        }
+        
+        // 3. Ищем все <li> элементы (старый метод)
+        const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
+        if (charsBlock2) {
+            charsBlock2.querySelectorAll('li').forEach(li => {
                 const text = li.textContent.trim();
                 const colonIndex = text.indexOf(':');
                 if (colonIndex > 0 && colonIndex < 50) {
@@ -60,14 +98,15 @@
                     }
                 }
             });
-            
-            console.log('[Comparison] Загружены характеристики со страницы:', characteristics);
-            return characteristics;
-        } catch (e) {
-            console.log('[Comparison] Ошибка загрузки характеристик:', e);
-            return {};
         }
+        
+        console.log('[Comparison] Загружены характеристики со страницы:', characteristics);
+        return characteristics;
+    } catch (e) {
+        console.log('[Comparison] Ошибка загрузки характеристик:', e);
+        return {};
     }
+}
 
     class ComparisonModule {
         constructor() {
