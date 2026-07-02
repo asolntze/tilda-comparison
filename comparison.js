@@ -45,30 +45,51 @@ async function loadCharacteristicsFromPage(productUrl) {
         
         const characteristics = {};
         
-        // 1. Ищем в json_chars (data-атрибут)
+        // 1. Ищем json_options (ВСЕ вариации: цвет, размер, вес, материал и т.д.)
         const scriptEl = doc.querySelector('script');
         if (scriptEl) {
             const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
-            const jsonMatch = scriptContent.match(/"json_chars":"([^"]+)"/);
-            if (jsonMatch) {
+            
+            // Извлекаем json_options
+            const jsonOptionsMatch = scriptContent.match(/"json_options":"(\[[\s\S]*?\])"/);
+            if (jsonOptionsMatch) {
                 try {
-                    const jsonStr = jsonMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                    const jsonChars = JSON.parse(jsonStr);
-                    if (Array.isArray(jsonChars)) {
-                        jsonChars.forEach(char => {
+                    const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                    const options = JSON.parse(jsonStr);
+                    if (Array.isArray(options)) {
+                        options.forEach(opt => {
+                            if (opt.title && opt.values && opt.values.length > 0) {
+                                const validValues = opt.values.filter(v => v && v.trim() !== '');
+                                if (validValues.length > 0) {
+                                    characteristics[opt.title] = validValues.join(', ');
+                                }
+                            }
+                        });
+                        console.log('[Comparison] Загружено из json_options:', characteristics);
+                    }
+                } catch (e) {
+                    console.log('[Comparison] Ошибка парсинга json_options:', e);
+                }
+            }
+
+            // 2. Извлекаем json_chars (дополнительные характеристики типа "вес: 50г")
+            const jsonCharsMatch = scriptContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
+            if (jsonCharsMatch) {
+                try {
+                    const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                    const chars = JSON.parse(jsonStr);
+                    if (Array.isArray(chars)) {
+                        chars.forEach(char => {
                             if (char.title && char.value) {
                                 characteristics[char.title] = char.value;
                             }
                         });
-                        console.log('[Comparison] Загружено из json_chars:', characteristics);
                     }
-                } catch (e) {
-                    console.log('[Comparison] Ошибка парсинга json_chars:', e);
-                }
+                } catch (e) {}
             }
         }
         
-        // 2. Ищем в блоке .js-catalog-prod-all-charcs (для <p>вес: 50г</p>)
+        // 3. Фоллбэк: ищем в блоке .js-catalog-prod-all-charcs
         const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
         if (charsBlock) {
             charsBlock.querySelectorAll('p').forEach(p => {
@@ -77,14 +98,14 @@ async function loadCharacteristicsFromPage(productUrl) {
                 if (colonIndex > 0 && colonIndex < 50) {
                     const name = text.substring(0, colonIndex).trim();
                     const value = text.substring(colonIndex + 1).trim();
-                    if (name && value && name.length < 100) {
+                    if (name && value && name.length < 100 && !characteristics[name]) {
                         characteristics[name] = value;
                     }
                 }
             });
         }
         
-        // 3. Ищем все <li> элементы (старый метод)
+        // 4. Фоллбэк: ищем все <li> элементы
         const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
         if (charsBlock2) {
             charsBlock2.querySelectorAll('li').forEach(li => {
@@ -93,14 +114,14 @@ async function loadCharacteristicsFromPage(productUrl) {
                 if (colonIndex > 0 && colonIndex < 50) {
                     const name = text.substring(0, colonIndex).trim();
                     const value = text.substring(colonIndex + 1).trim();
-                    if (name && value && name.length < 100) {
+                    if (name && value && name.length < 100 && !characteristics[name]) {
                         characteristics[name] = value;
                     }
                 }
             });
         }
         
-        console.log('[Comparison] Загружены характеристики со страницы:', characteristics);
+        console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
         return characteristics;
     } catch (e) {
         console.log('[Comparison] Ошибка загрузки характеристик:', e);
@@ -282,29 +303,49 @@ async function loadCharacteristicsFromPage(productUrl) {
             } catch (e) { log('Ошибка извлечения данных товара:', e); return null; }
         }
 
-        extractCharacteristics(card) {
-            const characteristics = {};
+       // Универсальная функция разделения склеенного текста
+function universalSplit(str) {
+    if (!str) return '';
+    if (str.includes(', ')) return str; // Уже разделено
+    // Разбиваем на кириллицу, латиницу и числа
+    const parts = str.match(/[а-яё]+|[a-z]+|\d+/gi);
+    return parts && parts.length > 1 ? parts.join(', ') : str;
+}
+
+extractCharacteristics(card) {
+    const characteristics = {};
+    
+    // Ищем в скрытых элементах
+    const allElements = card.querySelectorAll('*');
+    allElements.forEach((el, index) => {
+        const text = el.textContent.trim();
+        const style = el.getAttribute('style') || '';
+        const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
+        
+        if (isHidden && text && text.length > 2 && text !== 'р.') {
+            // Разделяем склеенный текст универсально
+            const splitText = universalSplit(text);
             
-            // 1. Ищем в скрытых элементах (цвета, размеры)
-            const allElements = card.querySelectorAll('*');
-            allElements.forEach((el, index) => {
-                const text = el.textContent.trim();
-                const style = el.getAttribute('style') || '';
-                const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
-                
-                if (isHidden && text && text.length > 2 && text !== 'р.') {
-                    if (/^\d+[,\s\d]*$/.test(text)) {
-                        characteristics['Размер'] = text;
-                    } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
-                               text.includes('розов') || text.includes('красн') || text.includes('син') || 
-                               text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
-                        characteristics['Цвет'] = text;
-                    }
-                }
-            });
-            
-            return characteristics;
+            // Пытаемся определить название характеристики
+            // Если текст похож на цвета
+            if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
+                text.includes('розов') || text.includes('красн') || text.includes('син') || 
+                text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
+                characteristics['Цвет'] = splitText;
+            } 
+            // Если только цифры (размеры)
+            else if (/^\d+$/.test(text)) {
+                characteristics['Размер'] = splitText;
+            } 
+            // Всё остальное
+            else {
+                characteristics[`Характеристика ${index}`] = splitText;
+            }
         }
+    });
+    
+    return characteristics;
+}
 
         findCardByUid(uid) {
             const cards = this.findProductCards();
