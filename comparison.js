@@ -312,6 +312,16 @@ function universalSplit(str) {
         }
 
 
+// Универсальная функция разделения склеенного текста
+function universalSplit(str) {
+    if (!str) return str;
+    if (str.includes(', ')) return str; // Уже разделено
+    
+    // Разбиваем на: кириллические слова, латинские слова, числа
+    const parts = str.match(/[а-яё]+|[a-z]+|\d+/gi);
+    return parts && parts.length > 1 ? parts.join(', ') : str;
+}
+
 extractCharacteristics(card) {
     const characteristics = {};
     
@@ -322,17 +332,36 @@ extractCharacteristics(card) {
         const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
         
         if (isHidden && text && text.length > 2 && text !== 'р.') {
+            // Разделяем склеенный текст универсально
             const splitText = universalSplit(text);
             
+            // Определяем тип характеристики
+            // Если текст содержит слова, похожие на цвета
             if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
                 text.includes('розов') || text.includes('красн') || text.includes('син') || 
                 text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
                 characteristics['Цвет'] = splitText;
-            } else if (/^\d+$/.test(text)) {
+            } 
+            // Если только цифры (размеры)
+            else if (/^\d+$/.test(text)) {
                 characteristics['Размер'] = splitText;
-            } else {
-                characteristics['Характеристика ' + (index + 1)] = splitText;
+            } 
+            // Всё остальное — сохраняем как есть (универсально)
+            else {
+                // Пытаемся определить название по содержимому
+                if (text.includes('г') || text.includes('кг') || text.includes('грамм')) {
+                    characteristics['Вес'] = splitText;
+                } else if (text.includes('мм') || text.includes('см') || text.includes('м')) {
+                    characteristics['Размеры'] = splitText;
+                } else if (text.includes('пластик') || text.includes('дерево') || text.includes('металл') || text.includes('ткань')) {
+                    characteristics['Материал'] = splitText;
+                } else {
+                    // Сохраняем как общую характеристику
+                    characteristics['Характеристика ' + (index + 1)] = splitText;
+                }
             }
+            
+            console.log('[Comparison] Найдено:', splitText);
         }
     });
     
