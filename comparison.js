@@ -33,6 +33,42 @@
         return str + ' ₽';
     }
 
+    // Загрузка характеристик со страницы товара
+async function loadCharacteristicsFromPage(productUrl) {
+    try {
+        const response = await fetch(productUrl);
+        if (!response.ok) return {};
+        
+        const html = await response.text();
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        
+        // Ищем блок с характеристиками
+        const charsBlock = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
+        if (!charsBlock) return {};
+        
+        const characteristics = {};
+        
+        // Ищем все <li> элементы
+        charsBlock.querySelectorAll('li').forEach(li => {
+            const text = li.textContent.trim();
+            const colonIndex = text.indexOf(':');
+            if (colonIndex > 0 && colonIndex < 50) {
+                const name = text.substring(0, colonIndex).trim();
+                const value = text.substring(colonIndex + 1).trim();
+                if (name && value && name.length < 100) {
+                    characteristics[name] = value;
+                }
+            }
+        });
+        
+        return characteristics;
+    } catch (e) {
+        console.log('[Comparison] Ошибка загрузки характеристик:', e);
+        return {};
+    }
+}
+    
     class ComparisonModule {
         constructor() {
             this.products = this.loadFromStorage();
@@ -156,28 +192,38 @@
             return data;
         }
 
-        addCompareButtons() {
-            this.forceLoadLazyImages();
-            const cards = this.findProductCards();
-            cards.forEach((card, index) => {
-                const cardId = card.getAttribute('data-product-id') || card.getAttribute('data-uid') || `card-${index}`;
-                if (this.processedCards.has(cardId + '-compare')) return;
-                if (card.querySelector('.comparison-btn')) { this.processedCards.add(cardId + '-compare'); return; }
-                const productData = this.extractProductData(card);
-                if (!productData) return;
-                const btn = document.createElement('button');
-                btn.className = 'comparison-btn';
-                btn.type = 'button';
-                btn.title = 'Добавить к сравнению';
-                btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.5 20.25L4.5 3.75M9.5 20.25L9.5 9.25M14.5 20.2495L14.5 3.75003M19.5 20.2495L19.5 12.25" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg>`;
-                btn.dataset.productUid = productData.uid;
-                if (this.products.find(p => p.uid === productData.uid)) btn.classList.add('active');
-                const computedStyle = window.getComputedStyle(card);
-                if (computedStyle.position === 'static') card.style.position = 'relative';
-                card.appendChild(btn);
-                this.processedCards.add(cardId + '-compare');
-            });
+addCompareButtons() {
+    this.forceLoadLazyImages();
+    const cards = this.findProductCards();
+    cards.forEach((card, index) => {
+        const cardId = card.getAttribute('data-product-id') || card.getAttribute('data-uid') || `card-${index}`;
+        if (this.processedCards.has(cardId + '-compare')) return;
+        if (card.querySelector('.comparison-btn')) { 
+            this.processedCards.add(cardId + '-compare'); 
+            return; 
         }
+        
+        // Извлекаем данные (без характеристик — они загрузятся позже)
+        const productData = this.extractProductData(card);
+        if (!productData) return;
+        
+        const btn = document.createElement('button');
+        btn.className = 'comparison-btn';
+        btn.type = 'button';
+        btn.title = 'Добавить к сравнению';
+        btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.5 20.25L4.5 3.75M9.5 20.25L9.5 9.25M14.5 20.2495L14.5 3.75003M19.5 20.2495L19.5 12.25" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg>`;
+        btn.dataset.productUid = productData.uid;
+        
+        if (this.products.find(p => p.uid === productData.uid)) {
+            btn.classList.add('active');
+        }
+        
+        const computedStyle = window.getComputedStyle(card);
+        if (computedStyle.position === 'static') card.style.position = 'relative';
+        card.appendChild(btn);
+        this.processedCards.add(cardId + '-compare');
+    });
+}
 
         extractProductData(card) {
             try {
@@ -207,68 +253,29 @@
             } catch (e) { log('Ошибка извлечения данных товара:', e); return null; }
         }
 
-        extractCharacteristics(card) {
+    extractCharacteristics(card) {
     const characteristics = {};
     
-    console.log('[Comparison] Начинаю поиск характеристик...');
-    
-    // 1. Ищем ВСЕ элементы с текстом внутри карточки
+    // 1. Ищем в скрытых элементах (цвета, размеры)
     const allElements = card.querySelectorAll('*');
     allElements.forEach((el, index) => {
         const text = el.textContent.trim();
         const style = el.getAttribute('style') || '';
-        
-        // Проверяем, не скрыт ли элемент
-        const isHidden = style.includes('display: none') || 
-                        style.includes('visibility: hidden') || 
-                        el.classList.contains('t-hidden');
+        const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
         
         if (isHidden && text && text.length > 2 && text !== 'р.') {
-            console.log('[Comparison] Скрытый элемент', index, ':', text);
-            
-            // Определяем тип
             if (/^\d+[,\s\d]*$/.test(text)) {
                 characteristics['Размер'] = text;
-                console.log('[Comparison] → Это размеры');
             } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
                        text.includes('розов') || text.includes('красн') || text.includes('син') || 
                        text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
                 characteristics['Цвет'] = text;
-                console.log('[Comparison] → Это цвета');
-            } else {
-                characteristics[`Характеристика ${index}`] = text;
             }
         }
     });
     
-    // 2. Ищем в data-атрибутах
-    const dataAttrs = card.attributes;
-    for (let attr of dataAttrs) {
-        if (attr.name.startsWith('data-product-') && 
-            !attr.name.includes('uid') && 
-            !attr.name.includes('id') && 
-            !attr.name.includes('url') && 
-            !attr.name.includes('price') && 
-            !attr.name.includes('img') && 
-            !attr.name.includes('label') && 
-            !attr.name.includes('pack') &&
-            !attr.name.includes('inv')) {
-            
-            const name = attr.name.replace('data-product-', '').replace(/-/g, ' ');
-            const value = attr.value;
-            
-            if (value && value.length > 0 && value !== '0' && !value.startsWith('http') && value !== 'mall') {
-                const capitalizedName = name.charAt(0).toUpperCase() + name.slice(1);
-                characteristics[capitalizedName] = value;
-                console.log('[Comparison] Data-атрибут:', capitalizedName, '=', value);
-            }
-        }
-    }
-    
-    console.log('[Comparison] Итоговые характеристики:', characteristics);
     return characteristics;
 }
-
         findCardByUid(uid) {
             const cards = this.findProductCards();
             for (const card of cards) {
@@ -361,22 +368,40 @@
             });
         }
 
-        toggleProduct(btn) {
-            const uid = btn.dataset.productUid;
-            const existingIndex = this.products.findIndex(p => p.uid === uid);
-            if (existingIndex > -1) {
-                this.products.splice(existingIndex, 1);
-                btn.classList.remove('active');
-                this.showNotification('Товар удален из сравнения', 'info');
-            } else {
-                if (this.products.length >= CONFIG.maxProducts) { this.showNotification(`Максимум ${CONFIG.maxProducts} товаров для сравнения`, 'error'); return; }
-                const card = btn.closest('.t-store__card, .t-catalog__card, [class*="card"]');
-                const productData = this.extractProductData(card);
-                if (productData) { this.products.push(productData); btn.classList.add('active'); this.showNotification('Товар добавлен к сравнению', 'success'); }
-            }
-            this.saveToStorage();
-            this.updateFloatingButton();
+async toggleProduct(btn) {
+    const uid = btn.dataset.productUid;
+    const existingIndex = this.products.findIndex(p => p.uid === uid);
+    
+    if (existingIndex > -1) {
+        this.products.splice(existingIndex, 1);
+        btn.classList.remove('active');
+        this.showNotification('Товар удален из сравнения', 'info');
+    } else {
+        if (this.products.length >= CONFIG.maxProducts) { 
+            this.showNotification(`Максимум ${CONFIG.maxProducts} товаров для сравнения`, 'error'); 
+            return; 
         }
+        
+        const card = btn.closest('.t-store__card, .t-catalog__card, [class*="card"]');
+        const productData = this.extractProductData(card);
+        
+        if (productData) {
+            // Загружаем характеристики со страницы товара
+            if (productData.url) {
+                const pageChars = await loadCharacteristicsFromPage(productData.url);
+                productData.characteristics = { ...productData.characteristics, ...pageChars };
+                console.log('[Comparison] Загружены характеристики со страницы:', pageChars);
+            }
+            
+            this.products.push(productData);
+            btn.classList.add('active');
+            this.showNotification('Товар добавлен к сравнению', 'success');
+        }
+    }
+    
+    this.saveToStorage();
+    this.updateFloatingButton();
+}
 
         removeProductFromPopup(uid) {
             this.products = this.products.filter(p => p.uid !== uid);
