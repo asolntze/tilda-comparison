@@ -129,6 +129,14 @@ async function loadCharacteristicsFromPage(productUrl) {
     }
 }
 
+    // Универсальная функция разделения склеенного текста
+function universalSplit(str) {
+    if (!str) return '';
+    if (str.includes(', ')) return str;
+    const parts = str.match(/[а-яё]+|[a-z]+|\d+/gi);
+    return parts && parts.length > 1 ? parts.join(', ') : str;
+}
+    
     class ComparisonModule {
         constructor() {
             this.products = this.loadFromStorage();
@@ -315,7 +323,6 @@ function universalSplit(str) {
 extractCharacteristics(card) {
     const characteristics = {};
     
-    // Ищем в скрытых элементах
     const allElements = card.querySelectorAll('*');
     allElements.forEach((el, index) => {
         const text = el.textContent.trim();
@@ -323,30 +330,23 @@ extractCharacteristics(card) {
         const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
         
         if (isHidden && text && text.length > 2 && text !== 'р.') {
-            // Разделяем склеенный текст универсально
             const splitText = universalSplit(text);
             
-            // Пытаемся определить название характеристики
-            // Если текст похож на цвета
             if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
                 text.includes('розов') || text.includes('красн') || text.includes('син') || 
                 text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
                 characteristics['Цвет'] = splitText;
-            } 
-            // Если только цифры (размеры)
-            else if (/^\d+$/.test(text)) {
+            } else if (/^\d+$/.test(text)) {
                 characteristics['Размер'] = splitText;
-            } 
-            // Всё остальное
-            else {
-                characteristics[`Характеристика ${index}`] = splitText;
+            } else {
+                characteristics['Характеристика ' + (index + 1)] = splitText;
             }
         }
     });
     
     return characteristics;
 }
-
+        
         findCardByUid(uid) {
             const cards = this.findProductCards();
             for (const card of cards) {
