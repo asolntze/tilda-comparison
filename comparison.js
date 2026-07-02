@@ -311,14 +311,6 @@ function universalSplit(str) {
             } catch (e) { log('Ошибка извлечения данных товара:', e); return null; }
         }
 
-       // Универсальная функция разделения склеенного текста
-function universalSplit(str) {
-    if (!str) return '';
-    if (str.includes(', ')) return str; // Уже разделено
-    // Разбиваем на кириллицу, латиницу и числа
-    const parts = str.match(/[а-яё]+|[a-z]+|\d+/gi);
-    return parts && parts.length > 1 ? parts.join(', ') : str;
-}
 
 extractCharacteristics(card) {
     const characteristics = {};
