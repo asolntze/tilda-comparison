@@ -432,7 +432,7 @@
             return null;
         }
 
-        addToCartFromPopup(btn) {
+                addToCartFromPopup(btn) {
             const uid = btn.dataset.uid;
             const title = btn.dataset.title || '';
             const product = this.products.find(p => p.uid === uid);
@@ -442,38 +442,72 @@
                 return; 
             }
             
-            // Способ 1: Используем временную кнопку с outerHTML
+            log('Добавление в корзину:', { uid, title });
+            
+            // Способ 1: Найти кнопку на странице и кликнуть
+            const cardOnPage = this.findCardByUid(uid);
+            if (cardOnPage) {
+                const orderBtn = this.findOrderButtonInCard(cardOnPage);
+                if (orderBtn) { 
+                    log('Найдена кнопка на странице, кликаем');
+                    orderBtn.click(); 
+                    this.animateCartButtonInPopup(btn); 
+                    this.showNotification(`"${title}" добавлен в корзину`, 'success'); 
+                    return; 
+                }
+            }
+            
+            // Способ 2: Создаём временную кнопку с правильными data-атрибутами
             if (product.orderButtonData && product.orderButtonData.outerHTML) {
                 try {
+                    // Создаём контейнер
                     const tempContainer = document.createElement('div');
                     tempContainer.innerHTML = product.orderButtonData.outerHTML;
-                    const tempBtn = tempContainer.firstElementChild;
+                    const tempBtn = tempContainer.querySelector('button, a');
+                    
+                    if (!tempBtn) {
+                        throw new Error('Кнопка не найдена в outerHTML');
+                    }
+                    
+                    // ДОБАВЛЯЕМ data-product-id и data-variation-id
+                    tempBtn.setAttribute('data-product-id', uid);
+                    tempBtn.setAttribute('data-product-uid', uid);
+                    if (product.orderButtonData.variationId) {
+                        tempBtn.setAttribute('data-variation-id', product.orderButtonData.variationId);
+                    }
+                    if (product.orderButtonData.productId) {
+                        tempBtn.setAttribute('data-product-id', product.orderButtonData.productId);
+                    }
+                    
+                    // Клонируем кнопку
+                    const clonedBtn = tempBtn.cloneNode(true);
                     
                     // Добавляем на страницу (невидимо)
-                    tempBtn.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:auto;';
-                    document.body.appendChild(tempBtn);
+                    clonedBtn.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:auto;z-index:-1;';
+                    document.body.appendChild(clonedBtn);
                     
                     // Кликаем
-                    tempBtn.click();
+                    log('Кликаем по временной кнопке с UID:', uid);
+                    clonedBtn.click();
                     
                     // Анимация и уведомление
                     this.animateCartButtonInPopup(btn);
                     this.showNotification(`"${title}" добавлен в корзину`, 'success');
                     
-                    // Удаляем через 1 секунду
+                    // Удаляем через 500ms
                     setTimeout(() => {
-                        if (tempBtn.parentNode) {
-                            tempBtn.parentNode.removeChild(tempBtn);
+                        if (clonedBtn.parentNode) {
+                            clonedBtn.parentNode.removeChild(clonedBtn);
                         }
-                    }, 1000);
+                    }, 500);
                     
                     return;
                 } catch (e) { 
-                    console.log('[Comparison] Ошибка временной кнопки:', e); 
+                    log('Ошибка временной кнопки:', e);
                 }
             }
             
-            // Способ 2: Открываем страницу товара
+            // Способ 3: Открываем страницу товара
             if (product.url) {
                 window.open(product.url, '_blank');
                 this.showNotification(`Откройте "${title}" для добавления в корзину`, 'info');
