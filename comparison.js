@@ -33,14 +33,6 @@
         return str + ' ₽';
     }
 
-    // Универсальная функция разделения склеенного текста
-    function universalSplit(str) {
-        if (!str) return str;
-        if (str.includes(', ')) return str;
-        const parts = str.match(/[а-яё]+|[a-z]+|\d+/gi);
-        return parts && parts.length > 1 ? parts.join(', ') : str;
-    }
-
     // Загрузка характеристик со страницы товара
     async function loadCharacteristicsFromPage(productUrl) {
         try {
@@ -72,10 +64,14 @@
                                     }
                                 }
                             });
+                            console.log('[Comparison] Загружено из json_options:', characteristics);
                         }
-                    } catch (e) {}
+                    } catch (e) {
+                        console.log('[Comparison] Ошибка парсинга json_options:', e);
+                    }
                 }
 
+                // 2. Извлекаем json_chars
                 const jsonCharsMatch = scriptContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
                 if (jsonCharsMatch) {
                     try {
@@ -92,7 +88,7 @@
                 }
             }
             
-            // 2. Ищем в блоке .js-catalog-prod-all-charcs
+            // 3. Ищем в блоке .js-catalog-prod-all-charcs
             const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
             if (charsBlock) {
                 charsBlock.querySelectorAll('p').forEach(p => {
@@ -108,7 +104,7 @@
                 });
             }
             
-            // 3. Ищем все <li> элементы
+            // 4. Ищем все <li> элементы
             const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
             if (charsBlock2) {
                 charsBlock2.querySelectorAll('li').forEach(li => {
@@ -124,6 +120,7 @@
                 });
             }
             
+            console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
             return characteristics;
         } catch (e) {
             console.log('[Comparison] Ошибка загрузки характеристик:', e);
@@ -315,16 +312,12 @@
                 const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
                 
                 if (isHidden && text && text.length > 2 && text !== 'р.') {
-                    const splitText = universalSplit(text);
-                    
-                    if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
-                        text.includes('розов') || text.includes('красн') || text.includes('син') || 
-                        text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
-                        characteristics['Цвет'] = splitText;
-                    } else if (/^\d+$/.test(text)) {
-                        characteristics['Размер'] = splitText;
-                    } else {
-                        characteristics['Характеристика ' + (index + 1)] = splitText;
+                    if (/^\d+[,\s\d]*$/.test(text)) {
+                        characteristics['Размер'] = text;
+                    } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
+                               text.includes('розов') || text.includes('красн') || text.includes('син') || 
+                               text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
+                        characteristics['Цвет'] = text;
                     }
                 }
             });
