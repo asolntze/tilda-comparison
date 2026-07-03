@@ -432,69 +432,57 @@
             return null;
         }
 
-               addToCartFromPopup(btn) {
+        addToCartFromPopup(btn) {
             const uid = btn.dataset.uid;
             const title = btn.dataset.title || '';
-            const url = btn.dataset.url || '';
             const product = this.products.find(p => p.uid === uid);
+            
             if (!product) { 
                 this.showNotification('Товар не найден', 'error'); 
                 return; 
             }
             
-            log('Добавление в корзину:', { uid, title });
-            
-            // Способ 1: Использовать tcart__addProduct
-            if (typeof window.tcart__addProduct === 'function') {
-                try {
-                    window.tcart__addProduct(uid, 1);
-                    this.animateCartButtonInPopup(btn);
-                    this.showNotification(`"${title}" добавлен в корзину`, 'success');
-                    log('Использован tcart__addProduct');
-                    return;
-                } catch (e) {
-                    log('Ошибка tcart__addProduct:', e);
-                }
-            }
-            
-            // Способ 2: Найти кнопку в карточке на странице и кликнуть
-            const cardOnPage = this.findCardByUid(uid);
-            if (cardOnPage) {
-                const orderBtn = this.findOrderButtonInCard(cardOnPage);
-                if (orderBtn) { 
-                    orderBtn.click(); 
-                    this.animateCartButtonInPopup(btn); 
-                    this.showNotification(`"${title}" — открытие формы заказа`, 'success'); 
-                    return; 
-                }
-            }
-            
-            // Способ 3: Использовать временную кнопку с outerHTML
+            // Способ 1: Используем временную кнопку с outerHTML
             if (product.orderButtonData && product.orderButtonData.outerHTML) {
                 try {
                     const tempContainer = document.createElement('div');
                     tempContainer.innerHTML = product.orderButtonData.outerHTML;
-                    tempContainer.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
-                    document.body.appendChild(tempContainer);
-                    tempContainer.firstElementChild.click();
+                    const tempBtn = tempContainer.firstElementChild;
+                    
+                    // Добавляем на страницу (невидимо)
+                    tempBtn.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:auto;';
+                    document.body.appendChild(tempBtn);
+                    
+                    // Кликаем
+                    tempBtn.click();
+                    
+                    // Анимация и уведомление
                     this.animateCartButtonInPopup(btn);
-                    this.showNotification(`"${title}" — открытие формы заказа`, 'success');
-                    setTimeout(() => tempContainer.parentNode?.removeChild(tempContainer), 1000);
+                    this.showNotification(`"${title}" добавлен в корзину`, 'success');
+                    
+                    // Удаляем через 1 секунду
+                    setTimeout(() => {
+                        if (tempBtn.parentNode) {
+                            tempBtn.parentNode.removeChild(tempBtn);
+                        }
+                    }, 1000);
+                    
                     return;
                 } catch (e) { 
-                    log('Ошибка временной кнопки:', e); 
+                    console.log('[Comparison] Ошибка временной кнопки:', e); 
                 }
             }
             
-            // Способ 4: Открыть страницу товара (последний вариант)
-            if (url) { 
-                window.open(url, '_blank'); 
-                this.showNotification(`Откройте "${title}" для оформления заказа`, 'info'); 
-                return; 
+            // Способ 2: Открываем страницу товара
+            if (product.url) {
+                window.open(product.url, '_blank');
+                this.showNotification(`Откройте "${title}" для добавления в корзину`, 'info');
+                return;
             }
             
             this.showNotification('Не удалось добавить товар в корзину', 'error');
         }
+        
         animateCartButtonInPopup(btn) {
             const originalHTML = btn.innerHTML;
             btn.classList.add('added');
