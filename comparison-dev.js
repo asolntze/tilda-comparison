@@ -560,14 +560,35 @@
                 }
                 
                 const compareBtn = e.target.closest('.comparison-btn');
-                if (compareBtn) { e.preventDefault(); e.stopPropagation(); this.toggleProduct(compareBtn); return; }
+                if (compareBtn) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.toggleProduct(compareBtn); 
+                    return; 
+                }
+                
                 const removeBtn = e.target.closest('.comparison-table__remove');
-                if (removeBtn) { e.preventDefault(); e.stopPropagation(); this.removeProductFromPopup(removeBtn.dataset.uid); return; }
+                if (removeBtn) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.removeProductFromPopup(removeBtn.dataset.uid); 
+                    return; 
+                }
+                
                 const cartBtn = e.target.closest('.comparison-table__add-to-cart');
-                if (cartBtn) { e.preventDefault(); e.stopPropagation(); this.addToCartFromPopup(cartBtn); return; }
+                if (cartBtn) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.addToCartFromPopup(cartBtn); 
+                    return; 
+                }
             });
+            
             window.addEventListener('storage', (e) => {
-                if (e.key === CONFIG.storageKey) { this.products = this.loadFromStorage(); this.updateFloatingButton(); }
+                if (e.key === CONFIG.storageKey) { 
+                    this.products = this.loadFromStorage(); 
+                    this.updateFloatingButton(); 
+                }
             });
         }
 
@@ -709,14 +730,20 @@
         }
         
         setupPopupEvents(popup) {
-            popup.querySelector('.comparison-popup__close').addEventListener('click', () => popup.remove());
+            const closeBtn = popup.querySelector('.comparison-popup__close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => popup.remove());
+            }
             
-            // Изменено: не закрывать при клике по ссылкам
-            popup.querySelector('.comparison-popup__overlay').addEventListener('click', (e) => {
-                if (!e.target.closest('.comparison-table__product-title-link, .comparison-table__product-image-link')) {
-                    popup.remove();
-                }
-            });
+            const overlay = popup.querySelector('.comparison-popup__overlay');
+            if (overlay) {
+                overlay.addEventListener('click', (e) => {
+                    const isProductLink = e.target.closest('.comparison-table__product-title-link, .comparison-table__product-image-link');
+                    if (!isProductLink) {
+                        popup.remove();
+                    }
+                });
+            }
             
             const toggle = popup.querySelector('#showOnlyDifferences');
             if (toggle) {
@@ -726,6 +753,22 @@
                     if (body) body.innerHTML = this.generateComparisonHTML();
                 });
             }
+            
+            const clearBtn = popup.querySelector('.comparison-popup__clear');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    if (confirm('Удалить все товары из сравнения?')) {
+                        this.products = [];
+                        this.saveToStorage();
+                        this.updateAllButtons();
+                        this.updateFloatingButton();
+                        popup.remove();
+                        this.showNotification('Сравнение очищено', 'info');
+                    }
+                });
+            }
+        }
+        
             popup.querySelector('.comparison-popup__clear').addEventListener('click', () => {
                 if (confirm('Удалить все товары из сравнения?')) {
                     this.products = [];
