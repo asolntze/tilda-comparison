@@ -552,6 +552,13 @@
 
         setupEventListeners() {
             document.body.addEventListener('click', (e) => {
+                // Останавливаем всплытие для ссылок на товар
+                const productLink = e.target.closest('.comparison-table__product-title-link, .comparison-table__product-image-link');
+                if (productLink) {
+                    e.stopPropagation();
+                    return;
+                }
+                
                 const compareBtn = e.target.closest('.comparison-btn');
                 if (compareBtn) { e.preventDefault(); e.stopPropagation(); this.toggleProduct(compareBtn); return; }
                 const removeBtn = e.target.closest('.comparison-table__remove');
@@ -703,7 +710,14 @@
         
         setupPopupEvents(popup) {
             popup.querySelector('.comparison-popup__close').addEventListener('click', () => popup.remove());
-            popup.querySelector('.comparison-popup__overlay').addEventListener('click', () => popup.remove());
+            
+            // Изменено: не закрывать при клике по ссылкам
+            popup.querySelector('.comparison-popup__overlay').addEventListener('click', (e) => {
+                if (!e.target.closest('.comparison-table__product-title-link, .comparison-table__product-image-link')) {
+                    popup.remove();
+                }
+            });
+            
             const toggle = popup.querySelector('#showOnlyDifferences');
             if (toggle) {
                 toggle.addEventListener('change', (e) => {
@@ -712,6 +726,18 @@
                     if (body) body.innerHTML = this.generateComparisonHTML();
                 });
             }
+            popup.querySelector('.comparison-popup__clear').addEventListener('click', () => {
+                if (confirm('Удалить все товары из сравнения?')) {
+                    this.products = [];
+                    this.saveToStorage();
+                    this.updateAllButtons();
+                    this.updateFloatingButton();
+                    popup.remove();
+                    this.showNotification('Сравнение очищено', 'info');
+                }
+            });
+        }
+        
             popup.querySelector('.comparison-popup__clear').addEventListener('click', () => {
                 if (confirm('Удалить все товары из сравнения?')) {
                     this.products = [];
