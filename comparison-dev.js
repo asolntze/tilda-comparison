@@ -432,17 +432,31 @@
             return null;
         }
 
-        addToCartFromPopup(btn) {
+                addToCartFromPopup(btn) {
             const uid = btn.dataset.uid;
             const title = btn.dataset.title || '';
             const url = btn.dataset.url || '';
             const product = this.products.find(p => p.uid === uid);
-            if (!product) { this.showNotification('Товар не найден', 'error'); return; }
+            if (!product) { 
+                this.showNotification('Товар не найден', 'error'); 
+                return; 
+            }
+            
+            log('Добавление в корзину:', { uid, title });
+            
+            // Способ 1: Найти кнопку в карточке на странице и кликнуть
             const cardOnPage = this.findCardByUid(uid);
             if (cardOnPage) {
                 const orderBtn = this.findOrderButtonInCard(cardOnPage);
-                if (orderBtn) { orderBtn.click(); this.animateCartButtonInPopup(btn); this.showNotification(`"${title}" — открытие формы заказа`, 'success'); return; }
+                if (orderBtn) { 
+                    orderBtn.click(); 
+                    this.animateCartButtonInPopup(btn); 
+                    this.showNotification(`"${title}" — открытие формы заказа`, 'success'); 
+                    return; 
+                }
             }
+            
+            // Способ 2: Использовать временную кнопку с outerHTML
             if (product.orderButtonData && product.orderButtonData.outerHTML) {
                 try {
                     const tempContainer = document.createElement('div');
@@ -454,15 +468,71 @@
                     this.showNotification(`"${title}" — открытие формы заказа`, 'success');
                     setTimeout(() => tempContainer.parentNode?.removeChild(tempContainer), 1000);
                     return;
-                } catch (e) { log('Ошибка временной кнопки:', e); }
+                } catch (e) { 
+                    log('Ошибка временной кнопки:', e); 
+                }
             }
+            
+            // Способ 3: Вызвать API корзины Тильды
             let apiUsed = false;
-            if (window.TildaCommerce?.addProductToCart) { try { window.TildaCommerce.addProductToCart(uid, 1, product.orderButtonData?.variationId || ''); apiUsed = true; } catch (e) {} }
-            if (!apiUsed && window.tcart?.add) { try { window.tcart.add({ productUid: uid, quantity: 1 }); apiUsed = true; } catch (e) {} }
-            if (!apiUsed && window.TildaShoppingCart?.add) { try { window.TildaShoppingCart.add(uid, 1); apiUsed = true; } catch (e) {} }
-            if (!apiUsed && typeof jQuery !== 'undefined') { try { jQuery(document).trigger('addProductToCart', { productId: uid, quantity: 1 }); apiUsed = true; } catch (e) {} }
-            if (apiUsed) { this.animateCartButtonInPopup(btn); this.showNotification(`"${title}" добавлен в корзину`, 'success'); return; }
-            if (url) { window.open(url, '_blank'); this.showNotification(`Откройте "${title}" для оформления заказа`, 'info'); return; }
+            
+            // Пробуем TildaCommerce (новый каталог)
+            if (window.TildaCommerce?.addProductToCart) { 
+                try { 
+                    window.TildaCommerce.addProductToCart(uid, 1, product.orderButtonData?.variationId || ''); 
+                    apiUsed = true; 
+                    log('Использован TildaCommerce');
+                } catch (e) {
+                    log('Ошибка TildaCommerce:', e);
+                }
+            }
+            
+            // Пробуем tcart (старый каталог)
+            if (!apiUsed && window.tcart?.add) { 
+                try { 
+                    window.tcart.add({ productUid: uid, quantity: 1 }); 
+                    apiUsed = true; 
+                    log('Использован tcart');
+                } catch (e) {
+                    log('Ошибка tcart:', e);
+                }
+            }
+            
+            // Пробуем TildaShoppingCart
+            if (!apiUsed && window.TildaShoppingCart?.add) { 
+                try { 
+                    window.TildaShoppingCart.add(uid, 1); 
+                    apiUsed = true; 
+                    log('Использован TildaShoppingCart');
+                } catch (e) {
+                    log('Ошибка TildaShoppingCart:', e);
+                }
+            }
+            
+            // Пробуем jQuery событие
+            if (!apiUsed && typeof jQuery !== 'undefined') { 
+                try { 
+                    jQuery(document).trigger('addProductToCart', { productId: uid, quantity: 1 }); 
+                    apiUsed = true; 
+                    log('Использован jQuery событие');
+                } catch (e) {
+                    log('Ошибка jQuery:', e);
+                }
+            }
+            
+            if (apiUsed) { 
+                this.animateCartButtonInPopup(btn); 
+                this.showNotification(`"${title}" добавлен в корзину`, 'success'); 
+                return; 
+            }
+            
+            // Способ 4: Открыть страницу товара (последний вариант)
+            if (url) { 
+                window.open(url, '_blank'); 
+                this.showNotification(`Откройте "${title}" для оформления заказа`, 'info'); 
+                return; 
+            }
+            
             this.showNotification('Не удалось добавить товар в корзину', 'error');
         }
 
