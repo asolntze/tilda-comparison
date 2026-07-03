@@ -432,7 +432,7 @@
             return null;
         }
 
-                addToCartFromPopup(btn) {
+               addToCartFromPopup(btn) {
             const uid = btn.dataset.uid;
             const title = btn.dataset.title || '';
             const url = btn.dataset.url || '';
@@ -444,7 +444,20 @@
             
             log('Добавление в корзину:', { uid, title });
             
-            // Способ 1: Найти кнопку в карточке на странице и кликнуть
+            // Способ 1: Использовать tcart__addProduct
+            if (typeof window.tcart__addProduct === 'function') {
+                try {
+                    window.tcart__addProduct(uid, 1);
+                    this.animateCartButtonInPopup(btn);
+                    this.showNotification(`"${title}" добавлен в корзину`, 'success');
+                    log('Использован tcart__addProduct');
+                    return;
+                } catch (e) {
+                    log('Ошибка tcart__addProduct:', e);
+                }
+            }
+            
+            // Способ 2: Найти кнопку в карточке на странице и кликнуть
             const cardOnPage = this.findCardByUid(uid);
             if (cardOnPage) {
                 const orderBtn = this.findOrderButtonInCard(cardOnPage);
@@ -456,7 +469,7 @@
                 }
             }
             
-            // Способ 2: Использовать временную кнопку с outerHTML
+            // Способ 3: Использовать временную кнопку с outerHTML
             if (product.orderButtonData && product.orderButtonData.outerHTML) {
                 try {
                     const tempContainer = document.createElement('div');
@@ -473,59 +486,6 @@
                 }
             }
             
-            // Способ 3: Вызвать API корзины Тильды
-            let apiUsed = false;
-            
-            // Пробуем TildaCommerce (новый каталог)
-            if (window.TildaCommerce?.addProductToCart) { 
-                try { 
-                    window.TildaCommerce.addProductToCart(uid, 1, product.orderButtonData?.variationId || ''); 
-                    apiUsed = true; 
-                    log('Использован TildaCommerce');
-                } catch (e) {
-                    log('Ошибка TildaCommerce:', e);
-                }
-            }
-            
-            // Пробуем tcart (старый каталог)
-            if (!apiUsed && window.tcart?.add) { 
-                try { 
-                    window.tcart.add({ productUid: uid, quantity: 1 }); 
-                    apiUsed = true; 
-                    log('Использован tcart');
-                } catch (e) {
-                    log('Ошибка tcart:', e);
-                }
-            }
-            
-            // Пробуем TildaShoppingCart
-            if (!apiUsed && window.TildaShoppingCart?.add) { 
-                try { 
-                    window.TildaShoppingCart.add(uid, 1); 
-                    apiUsed = true; 
-                    log('Использован TildaShoppingCart');
-                } catch (e) {
-                    log('Ошибка TildaShoppingCart:', e);
-                }
-            }
-            
-            // Пробуем jQuery событие
-            if (!apiUsed && typeof jQuery !== 'undefined') { 
-                try { 
-                    jQuery(document).trigger('addProductToCart', { productId: uid, quantity: 1 }); 
-                    apiUsed = true; 
-                    log('Использован jQuery событие');
-                } catch (e) {
-                    log('Ошибка jQuery:', e);
-                }
-            }
-            
-            if (apiUsed) { 
-                this.animateCartButtonInPopup(btn); 
-                this.showNotification(`"${title}" добавлен в корзину`, 'success'); 
-                return; 
-            }
-            
             // Способ 4: Открыть страницу товара (последний вариант)
             if (url) { 
                 window.open(url, '_blank'); 
@@ -535,7 +495,6 @@
             
             this.showNotification('Не удалось добавить товар в корзину', 'error');
         }
-
         animateCartButtonInPopup(btn) {
             const originalHTML = btn.innerHTML;
             btn.classList.add('added');
