@@ -647,7 +647,7 @@
             this.setupPopupEvents(popup);
         }
 
-        generateComparisonHTML() {
+                generateComparisonHTML() {
             if (this.products.length === 0) return '<div class="comparison-empty">Нет товаров для сравнения</div>';
             const allKeys = new Set();
             this.products.forEach(product => { if (product.characteristics) Object.keys(product.characteristics).forEach(key => allKeys.add(key)); });
@@ -664,7 +664,26 @@
             this.products.forEach(product => {
                 const safeTitle = (product.title || '').replace(/"/g, '&quot;');
                 const safeUrl = (product.url || '').replace(/"/g, '&quot;');
-                html += `<th class="comparison-table__product"><div class="comparison-table__product-image">${product.image ? `<img src="${product.image}" alt="${safeTitle}">` : '<div class="no-image">Нет фото</div>'}</div><div class="comparison-table__product-title">${product.title}</div>${product.description ? `<div class="comparison-table__product-descr">${product.description}</div>` : ''}<div class="comparison-table__product-price">${formatPrice(product.price)}</div><div class="comparison-table__product-actions"><button class="comparison-table__add-to-cart" data-uid="${product.uid}" data-title="${safeTitle}" data-url="${safeUrl}" title="Добавить в корзину"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.70711 15.2929C4.07714 15.9229 4.52331 17 5.41421 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 19C9 20.1046 8.10457 21 7 21C5.89543 21 5 20.1046 5 19C5 17.8954 5.89543 17 7 17C8.10457 17 9 17.8954 9 19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round"/></svg><span>В корзину</span></button><button class="comparison-table__remove" data-uid="${product.uid}" title="Удалить из сравнения"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6H5H21" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/><path d="M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6M19 6V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V6H19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg><span>Удалить</span></button></div></th>`;
+                html += `<th class="comparison-table__product">
+                    <a href="${safeUrl}" target="_blank" class="comparison-table__product-image-link" title="Открыть страницу товара">
+                        <div class="comparison-table__product-image">
+                            ${product.image ? `<img src="${product.image}" alt="${safeTitle}">` : '<div class="no-image">Нет фото</div>'}
+                        </div>
+                    </a>
+                    <a href="${safeUrl}" target="_blank" class="comparison-table__product-title-link" title="Открыть страницу товара">${product.title}</a>
+                    ${product.description ? `<div class="comparison-table__product-descr">${product.description}</div>` : ''}
+                    <div class="comparison-table__product-price">${formatPrice(product.price)}</div>
+                    <div class="comparison-table__product-actions">
+                        <button class="comparison-table__add-to-cart" data-uid="${product.uid}" data-title="${safeTitle}" data-url="${safeUrl}" title="Добавить в корзину">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.70711 15.2929C4.07714 15.9229 4.52331 17 5.41421 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 19C9 20.1046 8.10457 21 7 21C5.89543 21 5 20.1046 5 19C5 17.8954 5.89543 17 7 17C8.10457 17 9 17.8954 9 19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round"/></svg>
+                            <span>В корзину</span>
+                        </button>
+                        <button class="comparison-table__remove" data-uid="${product.uid}" title="Удалить из сравнения">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6H5H21" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/><path d="M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6M19 6V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V6H19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg>
+                            <span>Удалить</span>
+                        </button>
+                    </div>
+                </th>`;
             });
             html += '</tr></thead><tbody><tr><td class="comparison-table__char-name">Цена</td>';
             this.products.forEach(product => { html += `<td class="comparison-table__char-value">${formatPrice(product.price)}</td>`; });
@@ -681,7 +700,7 @@
             html += '</tbody></table></div>';
             return html;
         }
-
+        
         setupPopupEvents(popup) {
             popup.querySelector('.comparison-popup__close').addEventListener('click', () => popup.remove());
             popup.querySelector('.comparison-popup__overlay').addEventListener('click', () => popup.remove());
