@@ -1,5 +1,5 @@
 // ============================================
-// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA
+// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA (DEV)
 // ============================================
 
 (function() {
@@ -9,11 +9,34 @@
         maxProducts: 6,
         storageKey: 'tilda_comparison_products',
         showOnlyDifferences: false,
-        debug: true
+        debug: true,
+        
+        // Настройки источников данных
+        dataSources: {
+            jsonOptions: true,           // загружать из json_options (вариации товара)
+            jsonChars: true,             // загружать из json_chars (доп. характеристики)
+            allCharsBlock: true,         // загружать из .js-catalog-prod-all-charcs
+            allTextBlock: true,          // загружать из .js-catalog-prod-all-text
+            cardHiddenElements: true     // загружать из скрытых элементов карточки
+        },
+        
+        // Настройки обработки характеристик
+        characteristics: {
+            splitConcatenated: true,     // разделять слитные значения (сиреневыйжелтый → сиреневый, желтый)
+            splitNumbers: false,         // разделять слитные числа (363738 → 36, 37, 38) - экспериментально
+            minWordLength: 3             // минимальная длина слова для разделения
+        }
     };
 
     if (window.TildaComparisonConfig) {
+        // Объединяем конфиги рекурсивно
         Object.assign(CONFIG, window.TildaComparisonConfig);
+        if (window.TildaComparisonConfig.dataSources) {
+            Object.assign(CONFIG.dataSources, window.TildaComparisonConfig.dataSources);
+        }
+        if (window.TildaComparisonConfig.characteristics) {
+            Object.assign(CONFIG.characteristics, window.TildaComparisonConfig.characteristics);
+        }
     }
 
     function log(message, data = null) {
@@ -33,6 +56,35 @@
         return str + ' ₽';
     }
 
+    // Универсальная функция разделения склеенного текста
+    function universalSplit(str) {
+        if (!str || typeof str !== 'string') return str;
+        if (str.includes(', ')) return str; // Уже разделено
+        
+        const minLen = CONFIG.characteristics.minWordLength || 3;
+        
+        // Если включено разделение чисел
+        if (CONFIG.characteristics.splitNumbers && /^\d+$/.test(str)) {
+            // Разбиваем на числа по 2-3 цифры (для размеров)
+            const numbers = str.match(/\d{2,3}/g);
+            if (numbers && numbers.length > 1) {
+                return numbers.join(', ');
+            }
+            return str;
+        }
+        
+        // Разбиваем на: кириллические слова, латинские слова, числа с единицами измерения
+        const parts = str.match(new RegExp(`[а-яё]{${minLen},}|[a-z]{${minLen},}|\\d+(?:\\.\\d+)?\\s*(?:г|кг|мм|см|м|л|мл|шт|%|дюйм|inch|cm|mm|m|kg|g)?`, 'gi'));
+        
+        if (parts && parts.length > 1) {
+            // Очищаем каждую часть от лишних пробелов
+            const cleaned = parts.map(p => p.trim()).filter(p => p.length >= minLen);
+            return cleaned.length > 1 ? cleaned.join(', ') : str;
+        }
+        
+        return str;
+    }
+
     // Загрузка характеристик со страницы товара
     async function loadCharacteristicsFromPage(productUrl) {
         try {
@@ -45,85 +97,110 @@
             
             const characteristics = {};
             
-            // 1. Ищем json_options
-            const scriptEl = doc.querySelector('script');
-            if (scriptEl) {
-                const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
-                
-                const jsonOptionsMatch = scriptContent.match(/"json_options":"(\[[\s\S]*?\])"/);
-                if (jsonOptionsMatch) {
-                    try {
-                        const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                        const options = JSON.parse(jsonStr);
-                        if (Array.isArray(options)) {
-                            options.forEach(opt => {
-                                if (opt.title && opt.values && opt.values.length > 0) {
-                                    const validValues = opt.values.filter(v => v && v.trim() !== '');
-                                    if (validValues.length > 0) {
-                                        characteristics[opt.title] = validValues.join(', ');
+            // 1. Ищем json_options (вариации товара: цвет, размер и т.д.)
+            if (CONFIG.dataSources.jsonOptions) {
+                const scriptEl = doc.querySelector('script');
+                if (scriptEl) {
+                    const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
+                    
+                    const jsonOptionsMatch = scriptContent.match(/"json_options":"(\[[\s\S]*?\])"/);
+                    if (jsonOptionsMatch) {
+                        try {
+                            const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                            const options = JSON.parse(jsonStr);
+                            if (Array.isArray(options)) {
+                                options.forEach(opt => {
+                                    if (opt.title && opt.values && opt.values.length > 0) {
+                                        const validValues = opt.values.filter(v => v && v.trim() !== '');
+                                        if (validValues.length > 0) {
+                                            let value = validValues.join(', ');
+                                            // Применяем универсальное разделение если нужно
+                                            if (CONFIG.characteristics.splitConcatenated) {
+                                                value = universalSplit(value);
+                                            }
+                                            characteristics[opt.title] = value;
+                                        }
                                     }
-                                }
-                            });
-                            console.log('[Comparison] Загружено из json_options:', characteristics);
+                                });
+                                if (CONFIG.debug) console.log('[Comparison] Загружено из json_options:', characteristics);
+                            }
+                        } catch (e) {
+                            if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_options:', e);
                         }
-                    } catch (e) {
-                        console.log('[Comparison] Ошибка парсинга json_options:', e);
                     }
-                }
 
-                // 2. Извлекаем json_chars
-                const jsonCharsMatch = scriptContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
-                if (jsonCharsMatch) {
-                    try {
-                        const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                        const chars = JSON.parse(jsonStr);
-                        if (Array.isArray(chars)) {
-                            chars.forEach(char => {
-                                if (char.title && char.value) {
-                                    characteristics[char.title] = char.value;
+                    // 2. Извлекаем json_chars (дополнительные характеристики)
+                    if (CONFIG.dataSources.jsonChars) {
+                        const jsonCharsMatch = scriptContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
+                        if (jsonCharsMatch) {
+                            try {
+                                const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                                const chars = JSON.parse(jsonStr);
+                                if (Array.isArray(chars)) {
+                                    chars.forEach(char => {
+                                        if (char.title && char.value) {
+                                            let value = char.value;
+                                            if (CONFIG.characteristics.splitConcatenated) {
+                                                value = universalSplit(value);
+                                            }
+                                            characteristics[char.title] = value;
+                                        }
+                                    });
                                 }
-                            });
+                            } catch (e) {}
                         }
-                    } catch (e) {}
+                    }
                 }
             }
             
             // 3. Ищем в блоке .js-catalog-prod-all-charcs
-            const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
-            if (charsBlock) {
-                charsBlock.querySelectorAll('p').forEach(p => {
-                    const text = p.textContent.trim();
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 50) {
-                        const name = text.substring(0, colonIndex).trim();
-                        const value = text.substring(colonIndex + 1).trim();
-                        if (name && value && name.length < 100 && !characteristics[name]) {
-                            characteristics[name] = value;
+            if (CONFIG.dataSources.allCharsBlock) {
+                const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
+                if (charsBlock) {
+                    charsBlock.querySelectorAll('p').forEach(p => {
+                        const text = p.textContent.trim();
+                        const colonIndex = text.indexOf(':');
+                        if (colonIndex > 0 && colonIndex < 50) {
+                            const name = text.substring(0, colonIndex).trim();
+                            let value = text.substring(colonIndex + 1).trim();
+                            if (CONFIG.characteristics.splitConcatenated) {
+                                value = universalSplit(value);
+                            }
+                            if (name && value && name.length < 100 && !characteristics[name]) {
+                                characteristics[name] = value;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             
             // 4. Ищем все <li> элементы
-            const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
-            if (charsBlock2) {
-                charsBlock2.querySelectorAll('li').forEach(li => {
-                    const text = li.textContent.trim();
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 50) {
-                        const name = text.substring(0, colonIndex).trim();
-                        const value = text.substring(colonIndex + 1).trim();
-                        if (name && value && name.length < 100 && !characteristics[name]) {
-                            characteristics[name] = value;
+            if (CONFIG.dataSources.allTextBlock) {
+                const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
+                if (charsBlock2) {
+                    charsBlock2.querySelectorAll('li').forEach(li => {
+                        const text = li.textContent.trim();
+                        const colonIndex = text.indexOf(':');
+                        if (colonIndex > 0 && colonIndex < 50) {
+                            const name = text.substring(0, colonIndex).trim();
+                            let value = text.substring(colonIndex + 1).trim();
+                            if (CONFIG.characteristics.splitConcatenated) {
+                                value = universalSplit(value);
+                            }
+                            if (name && value && name.length < 100 && !characteristics[name]) {
+                                characteristics[name] = value;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             
-            console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
+            if (CONFIG.debug && Object.keys(characteristics).length > 0) {
+                console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
+            }
             return characteristics;
         } catch (e) {
-            console.log('[Comparison] Ошибка загрузки характеристик:', e);
+            if (CONFIG.debug) console.log('[Comparison] Ошибка загрузки характеристик:', e);
             return {};
         }
     }
@@ -305,6 +382,8 @@
         extractCharacteristics(card) {
             const characteristics = {};
             
+            if (!CONFIG.dataSources.cardHiddenElements) return characteristics;
+            
             const allElements = card.querySelectorAll('*');
             allElements.forEach((el, index) => {
                 const text = el.textContent.trim();
@@ -312,12 +391,27 @@
                 const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
                 
                 if (isHidden && text && text.length > 2 && text !== 'р.') {
-                    if (/^\d+[,\s\d]*$/.test(text)) {
-                        characteristics['Размер'] = text;
-                    } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
-                               text.includes('розов') || text.includes('красн') || text.includes('син') || 
-                               text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
-                        characteristics['Цвет'] = text;
+                    let processedText = text;
+                    
+                    // Применяем универсальное разделение
+                    if (CONFIG.characteristics.splitConcatenated) {
+                        processedText = universalSplit(text);
+                    }
+                    
+                    // Определяем название характеристики автоматически
+                    // Если текст содержит слова, похожие на цвета
+                    if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
+                        text.includes('розов') || text.includes('красн') || text.includes('син') || 
+                        text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
+                        characteristics['Цвет'] = processedText;
+                    } 
+                    // Если только цифры (размеры)
+                    else if (/^\d+$/.test(text)) {
+                        characteristics['Размер'] = processedText;
+                    } 
+                    // Всё остальное — сохраняем как общую характеристику
+                    else {
+                        characteristics['Характеристика ' + (index + 1)] = processedText;
                     }
                 }
             });
