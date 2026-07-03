@@ -86,129 +86,128 @@
     }
 
     // Загрузка характеристик со страницы товара
-// Загрузка характеристик со страницы товара
-async function loadCharacteristicsFromPage(productUrl) {
-    try {
-        const response = await fetch(productUrl);
-        if (!response.ok) return {};
-        
-        const html = await response.text();
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(html, 'text/html');
-        
-        const characteristics = {};
-        
-        // Собираем содержимое ВСЕХ скриптов (не только первого)
-        let allScriptsContent = '';
-        const scriptElements = doc.querySelectorAll('script');
-        scriptElements.forEach(scriptEl => {
-            allScriptsContent += (scriptEl.textContent || scriptEl.innerHTML) + '\n';
-        });
-        
-        // 1. Ищем json_options (вариации товара: цвет, размер и т.д.)
-        if (CONFIG.dataSources.jsonOptions && allScriptsContent) {
-            const jsonOptionsMatch = allScriptsContent.match(/"json_options":"(\[[\s\S]*?\])"/);
-            if (jsonOptionsMatch) {
-                try {
-                    const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                    const options = JSON.parse(jsonStr);
-                    if (Array.isArray(options)) {
-                        options.forEach(opt => {
-                            if (opt.title && opt.values && opt.values.length > 0) {
-                                const validValues = opt.values.filter(v => v && v.trim() !== '');
-                                if (validValues.length > 0) {
-                                    let value = validValues.join(', ');
+    async function loadCharacteristicsFromPage(productUrl) {
+        try {
+            const response = await fetch(productUrl);
+            if (!response.ok) return {};
+            
+            const html = await response.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            const characteristics = {};
+            
+            // Собираем содержимое ВСЕХ скриптов (не только первого)
+            let allScriptsContent = '';
+            const scriptElements = doc.querySelectorAll('script');
+            scriptElements.forEach(scriptEl => {
+                allScriptsContent += (scriptEl.textContent || scriptEl.innerHTML) + '\n';
+            });
+            
+            // 1. Ищем json_options (вариации товара: цвет, размер и т.д.)
+            if (CONFIG.dataSources.jsonOptions && allScriptsContent) {
+                const jsonOptionsMatch = allScriptsContent.match(/"json_options":"(\[[\s\S]*?\])"/);
+                if (jsonOptionsMatch) {
+                    try {
+                        const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                        const options = JSON.parse(jsonStr);
+                        if (Array.isArray(options)) {
+                            options.forEach(opt => {
+                                if (opt.title && opt.values && opt.values.length > 0) {
+                                    const validValues = opt.values.filter(v => v && v.trim() !== '');
+                                    if (validValues.length > 0) {
+                                        let value = validValues.join(', ');
+                                        if (CONFIG.characteristics.splitConcatenated) {
+                                            value = universalSplit(value);
+                                        }
+                                        characteristics[opt.title] = value;
+                                    }
+                                }
+                            });
+                            if (CONFIG.debug) console.log('[Comparison] Загружено из json_options:', characteristics);
+                        }
+                    } catch (e) {
+                        if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_options:', e);
+                    }
+                }
+            }
+            
+            // 2. Извлекаем json_chars (дополнительные характеристики)
+            if (CONFIG.dataSources.jsonChars && allScriptsContent) {
+                const jsonCharsMatch = allScriptsContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
+                if (jsonCharsMatch) {
+                    try {
+                        const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                        const chars = JSON.parse(jsonStr);
+                        if (Array.isArray(chars)) {
+                            chars.forEach(char => {
+                                if (char.title && char.value) {
+                                    let value = char.value;
                                     if (CONFIG.characteristics.splitConcatenated) {
                                         value = universalSplit(value);
                                     }
-                                    characteristics[opt.title] = value;
+                                    characteristics[char.title] = value;
                                 }
-                            }
-                        });
-                        if (CONFIG.debug) console.log('[Comparison] Загружено из json_options:', characteristics);
+                            });
+                            if (CONFIG.debug) console.log('[Comparison] Загружено из json_chars:', characteristics);
+                        }
+                    } catch (e) {
+                        if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_chars:', e);
                     }
-                } catch (e) {
-                    if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_options:', e);
                 }
             }
-        }
-        
-        // 2. Извлекаем json_chars (дополнительные характеристики)
-        if (CONFIG.dataSources.jsonChars && allScriptsContent) {
-            const jsonCharsMatch = allScriptsContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
-            if (jsonCharsMatch) {
-                try {
-                    const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                    const chars = JSON.parse(jsonStr);
-                    if (Array.isArray(chars)) {
-                        chars.forEach(char => {
-                            if (char.title && char.value) {
-                                let value = char.value;
-                                if (CONFIG.characteristics.splitConcatenated) {
-                                    value = universalSplit(value);
-                                }
-                                characteristics[char.title] = value;
+            
+            // 3. Ищем в блоке .js-catalog-prod-all-charcs
+            if (CONFIG.dataSources.allCharsBlock) {
+                const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
+                if (charsBlock) {
+                    charsBlock.querySelectorAll('p').forEach(p => {
+                        const text = p.textContent.trim();
+                        const colonIndex = text.indexOf(':');
+                        if (colonIndex > 0 && colonIndex < 50) {
+                            const name = text.substring(0, colonIndex).trim();
+                            let value = text.substring(colonIndex + 1).trim();
+                            if (CONFIG.characteristics.splitConcatenated) {
+                                value = universalSplit(value);
                             }
-                        });
-                        if (CONFIG.debug) console.log('[Comparison] Загружено из json_chars:', characteristics);
-                    }
-                } catch (e) {
-                    if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_chars:', e);
+                            if (name && value && name.length < 100 && !characteristics[name]) {
+                                characteristics[name] = value;
+                            }
+                        }
+                    });
                 }
             }
-        }
-        
-        // 3. Ищем в блоке .js-catalog-prod-all-charcs
-        if (CONFIG.dataSources.allCharsBlock) {
-            const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
-            if (charsBlock) {
-                charsBlock.querySelectorAll('p').forEach(p => {
-                    const text = p.textContent.trim();
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 50) {
-                        const name = text.substring(0, colonIndex).trim();
-                        let value = text.substring(colonIndex + 1).trim();
-                        if (CONFIG.characteristics.splitConcatenated) {
-                            value = universalSplit(value);
+            
+            // 4. Ищем все <li> элементы
+            if (CONFIG.dataSources.allTextBlock) {
+                const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
+                if (charsBlock2) {
+                    charsBlock2.querySelectorAll('li').forEach(li => {
+                        const text = li.textContent.trim();
+                        const colonIndex = text.indexOf(':');
+                        if (colonIndex > 0 && colonIndex < 50) {
+                            const name = text.substring(0, colonIndex).trim();
+                            let value = text.substring(colonIndex + 1).trim();
+                            if (CONFIG.characteristics.splitConcatenated) {
+                                value = universalSplit(value);
+                            }
+                            if (name && value && name.length < 100 && !characteristics[name]) {
+                                characteristics[name] = value;
+                            }
                         }
-                        if (name && value && name.length < 100 && !characteristics[name]) {
-                            characteristics[name] = value;
-                        }
-                    }
-                });
+                    });
+                }
             }
-        }
-        
-        // 4. Ищем все <li> элементы
-        if (CONFIG.dataSources.allTextBlock) {
-            const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
-            if (charsBlock2) {
-                charsBlock2.querySelectorAll('li').forEach(li => {
-                    const text = li.textContent.trim();
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 50) {
-                        const name = text.substring(0, colonIndex).trim();
-                        let value = text.substring(colonIndex + 1).trim();
-                        if (CONFIG.characteristics.splitConcatenated) {
-                            value = universalSplit(value);
-                        }
-                        if (name && value && name.length < 100 && !characteristics[name]) {
-                            characteristics[name] = value;
-                        }
-                    }
-                });
+            
+            if (CONFIG.debug && Object.keys(characteristics).length > 0) {
+                console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
             }
+            return characteristics;
+        } catch (e) {
+            if (CONFIG.debug) console.log('[Comparison] Ошибка загрузки характеристик:', e);
+            return {};
         }
-        
-        if (CONFIG.debug && Object.keys(characteristics).length > 0) {
-            console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
-        }
-        return characteristics;
-    } catch (e) {
-        if (CONFIG.debug) console.log('[Comparison] Ошибка загрузки характеристик:', e);
-        return {};
     }
-}
 
     class ComparisonModule {
         constructor() {
@@ -435,7 +434,7 @@ async function loadCharacteristicsFromPage(productUrl) {
             return null;
         }
 
-                addToCartFromPopup(btn) {
+        addToCartFromPopup(btn) {
             const uid = btn.dataset.uid;
             const title = btn.dataset.title || '';
             const product = this.products.find(p => p.uid === uid);
@@ -678,7 +677,7 @@ async function loadCharacteristicsFromPage(productUrl) {
             this.setupPopupEvents(popup);
         }
 
-                generateComparisonHTML() {
+        generateComparisonHTML() {
             if (this.products.length === 0) return '<div class="comparison-empty">Нет товаров для сравнения</div>';
             const allKeys = new Set();
             this.products.forEach(product => { if (product.characteristics) Object.keys(product.characteristics).forEach(key => allKeys.add(key)); });
@@ -772,7 +771,6 @@ async function loadCharacteristicsFromPage(productUrl) {
             }
         }
         
-
         updateAllButtons() {
             document.querySelectorAll('.comparison-btn').forEach(btn => {
                 const uid = btn.dataset.productUid;
