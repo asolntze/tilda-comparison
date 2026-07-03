@@ -100,6 +100,7 @@
             // 1. Ищем json_options (вариации товара: цвет, размер и т.д.)
             if (CONFIG.dataSources.jsonOptions) {
                 const scriptEl = doc.querySelector('script');
+                if (CONFIG.dataSources.jsonOptions) {
                 if (scriptEl) {
                     const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
                     
@@ -128,6 +129,7 @@
                             if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_options:', e);
                         }
                     }
+                }
 
                     // 2. Извлекаем json_chars (дополнительные характеристики)
                     if (CONFIG.dataSources.jsonChars) {
