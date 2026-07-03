@@ -1,6 +1,6 @@
-// ============================================
-// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA
-// ============================================
+// ==============================================
+// МОДУЛЬ СРАВНЕНИЯ ТОВАРОВ ДЛЯ TILDA / asolntze
+// ==============================================
 
 (function() {
     'use strict';
@@ -9,11 +9,34 @@
         maxProducts: 6,
         storageKey: 'tilda_comparison_products',
         showOnlyDifferences: false,
-        debug: true
+        debug: false,
+        
+        // Настройки источников данных
+        dataSources: {
+            jsonOptions: true,           // загружать из json_options (вариации товара)
+            jsonChars: true,             // загружать из json_chars (доп. характеристики)
+            allCharsBlock: true,         // загружать из .js-catalog-prod-all-charcs
+            allTextBlock: true,          // загружать из .js-catalog-prod-all-text
+            cardHiddenElements: true     // загружать из скрытых элементов карточки
+        },
+        
+        // Настройки обработки характеристик
+        characteristics: {
+            splitConcatenated: true,     // разделять слитные значения (сиреневыйжелтый → сиреневый, желтый)
+            splitNumbers: false,         // разделять слитные числа (363738 → 36, 37, 38) - экспериментально
+            minWordLength: 3             // минимальная длина слова для разделения
+        }
     };
 
     if (window.TildaComparisonConfig) {
+        // Объединяем конфиги рекурсивно
         Object.assign(CONFIG, window.TildaComparisonConfig);
+        if (window.TildaComparisonConfig.dataSources) {
+            Object.assign(CONFIG.dataSources, window.TildaComparisonConfig.dataSources);
+        }
+        if (window.TildaComparisonConfig.characteristics) {
+            Object.assign(CONFIG.characteristics, window.TildaComparisonConfig.characteristics);
+        }
     }
 
     function log(message, data = null) {
@@ -33,6 +56,35 @@
         return str + ' ₽';
     }
 
+    // Универсальная функция разделения склеенного текста
+    function universalSplit(str) {
+        if (!str || typeof str !== 'string') return str;
+        if (str.includes(', ')) return str; // Уже разделено
+        
+        const minLen = CONFIG.characteristics.minWordLength || 3;
+        
+        // Если включено разделение чисел
+        if (CONFIG.characteristics.splitNumbers && /^\d+$/.test(str)) {
+            // Разбиваем на числа по 2-3 цифры (для размеров)
+            const numbers = str.match(/\d{2,3}/g);
+            if (numbers && numbers.length > 1) {
+                return numbers.join(', ');
+            }
+            return str;
+        }
+        
+        // Разбиваем на: кириллические слова, латинские слова, числа с единицами измерения
+        const parts = str.match(new RegExp(`[а-яё]{${minLen},}|[a-z]{${minLen},}|\\d+(?:\\.\\d+)?\\s*(?:г|кг|мм|см|м|л|мл|шт|%|дюйм|inch|cm|mm|m|kg|g)?`, 'gi'));
+        
+        if (parts && parts.length > 1) {
+            // Очищаем каждую часть от лишних пробелов
+            const cleaned = parts.map(p => p.trim()).filter(p => p.length >= minLen);
+            return cleaned.length > 1 ? cleaned.join(', ') : str;
+        }
+        
+        return str;
+    }
+
     // Загрузка характеристик со страницы товара
     async function loadCharacteristicsFromPage(productUrl) {
         try {
@@ -45,85 +97,112 @@
             
             const characteristics = {};
             
-            // 1. Ищем json_options
-            const scriptEl = doc.querySelector('script');
-            if (scriptEl) {
-                const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
-                
-                const jsonOptionsMatch = scriptContent.match(/"json_options":"(\[[\s\S]*?\])"/);
-                if (jsonOptionsMatch) {
-                    try {
-                        const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                        const options = JSON.parse(jsonStr);
-                        if (Array.isArray(options)) {
-                            options.forEach(opt => {
-                                if (opt.title && opt.values && opt.values.length > 0) {
-                                    const validValues = opt.values.filter(v => v && v.trim() !== '');
-                                    if (validValues.length > 0) {
-                                        characteristics[opt.title] = validValues.join(', ');
+            // 1. Ищем json_options (вариации товара: цвет, размер и т.д.)
+            if (CONFIG.dataSources.jsonOptions) {
+                const scriptEl = doc.querySelector('script');
+                if (CONFIG.dataSources.jsonOptions) {
+                if (scriptEl) {
+                    const scriptContent = scriptEl.textContent || scriptEl.innerHTML;
+                    
+                    const jsonOptionsMatch = scriptContent.match(/"json_options":"(\[[\s\S]*?\])"/);
+                    if (jsonOptionsMatch) {
+                        try {
+                            const jsonStr = jsonOptionsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                            const options = JSON.parse(jsonStr);
+                            if (Array.isArray(options)) {
+                                options.forEach(opt => {
+                                    if (opt.title && opt.values && opt.values.length > 0) {
+                                        const validValues = opt.values.filter(v => v && v.trim() !== '');
+                                        if (validValues.length > 0) {
+                                            let value = validValues.join(', ');
+                                            // Применяем универсальное разделение если нужно
+                                            if (CONFIG.characteristics.splitConcatenated) {
+                                                value = universalSplit(value);
+                                            }
+                                            characteristics[opt.title] = value;
+                                        }
                                     }
-                                }
-                            });
-                            console.log('[Comparison] Загружено из json_options:', characteristics);
+                                });
+                                if (CONFIG.debug) console.log('[Comparison] Загружено из json_options:', characteristics);
+                            }
+                        } catch (e) {
+                            if (CONFIG.debug) console.log('[Comparison] Ошибка парсинга json_options:', e);
                         }
-                    } catch (e) {
-                        console.log('[Comparison] Ошибка парсинга json_options:', e);
                     }
                 }
 
-                // 2. Извлекаем json_chars
-                const jsonCharsMatch = scriptContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
-                if (jsonCharsMatch) {
-                    try {
-                        const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
-                        const chars = JSON.parse(jsonStr);
-                        if (Array.isArray(chars)) {
-                            chars.forEach(char => {
-                                if (char.title && char.value) {
-                                    characteristics[char.title] = char.value;
+                    // 2. Извлекаем json_chars (дополнительные характеристики)
+                    if (CONFIG.dataSources.jsonChars) {
+                        const jsonCharsMatch = scriptContent.match(/"json_chars":"(\[[\s\S]*?\])"/);
+                        if (jsonCharsMatch) {
+                            try {
+                                const jsonStr = jsonCharsMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+                                const chars = JSON.parse(jsonStr);
+                                if (Array.isArray(chars)) {
+                                    chars.forEach(char => {
+                                        if (char.title && char.value) {
+                                            let value = char.value;
+                                            if (CONFIG.characteristics.splitConcatenated) {
+                                                value = universalSplit(value);
+                                            }
+                                            characteristics[char.title] = value;
+                                        }
+                                    });
                                 }
-                            });
+                            } catch (e) {}
                         }
-                    } catch (e) {}
+                    }
                 }
             }
             
             // 3. Ищем в блоке .js-catalog-prod-all-charcs
-            const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
-            if (charsBlock) {
-                charsBlock.querySelectorAll('p').forEach(p => {
-                    const text = p.textContent.trim();
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 50) {
-                        const name = text.substring(0, colonIndex).trim();
-                        const value = text.substring(colonIndex + 1).trim();
-                        if (name && value && name.length < 100 && !characteristics[name]) {
-                            characteristics[name] = value;
+            if (CONFIG.dataSources.allCharsBlock) {
+                const charsBlock = doc.querySelector('.js-catalog-prod-all-charcs, .js-store-prod-all-charcs');
+                if (charsBlock) {
+                    charsBlock.querySelectorAll('p').forEach(p => {
+                        const text = p.textContent.trim();
+                        const colonIndex = text.indexOf(':');
+                        if (colonIndex > 0 && colonIndex < 50) {
+                            const name = text.substring(0, colonIndex).trim();
+                            let value = text.substring(colonIndex + 1).trim();
+                            if (CONFIG.characteristics.splitConcatenated) {
+                                value = universalSplit(value);
+                            }
+                            if (name && value && name.length < 100 && !characteristics[name]) {
+                                characteristics[name] = value;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             
             // 4. Ищем все <li> элементы
-            const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
-            if (charsBlock2) {
-                charsBlock2.querySelectorAll('li').forEach(li => {
-                    const text = li.textContent.trim();
-                    const colonIndex = text.indexOf(':');
-                    if (colonIndex > 0 && colonIndex < 50) {
-                        const name = text.substring(0, colonIndex).trim();
-                        const value = text.substring(colonIndex + 1).trim();
-                        if (name && value && name.length < 100 && !characteristics[name]) {
-                            characteristics[name] = value;
+            if (CONFIG.dataSources.allTextBlock) {
+                const charsBlock2 = doc.querySelector('.js-catalog-prod-all-text, .js-store-prod-all-text, [class*="prod-all-text"]');
+                if (charsBlock2) {
+                    charsBlock2.querySelectorAll('li').forEach(li => {
+                        const text = li.textContent.trim();
+                        const colonIndex = text.indexOf(':');
+                        if (colonIndex > 0 && colonIndex < 50) {
+                            const name = text.substring(0, colonIndex).trim();
+                            let value = text.substring(colonIndex + 1).trim();
+                            if (CONFIG.characteristics.splitConcatenated) {
+                                value = universalSplit(value);
+                            }
+                            if (name && value && name.length < 100 && !characteristics[name]) {
+                                characteristics[name] = value;
+                            }
                         }
-                    }
-                });
+                    });
+                }
             }
             
-            console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
+            if (CONFIG.debug && Object.keys(characteristics).length > 0) {
+                console.log('[Comparison] Итоговые характеристики со страницы:', characteristics);
+            }
             return characteristics;
         } catch (e) {
-            console.log('[Comparison] Ошибка загрузки характеристик:', e);
+            if (CONFIG.debug) console.log('[Comparison] Ошибка загрузки характеристик:', e);
             return {};
         }
     }
@@ -305,6 +384,8 @@
         extractCharacteristics(card) {
             const characteristics = {};
             
+            if (!CONFIG.dataSources.cardHiddenElements) return characteristics;
+            
             const allElements = card.querySelectorAll('*');
             allElements.forEach((el, index) => {
                 const text = el.textContent.trim();
@@ -312,12 +393,27 @@
                 const isHidden = style.includes('display: none') || style.includes('visibility: hidden');
                 
                 if (isHidden && text && text.length > 2 && text !== 'р.') {
-                    if (/^\d+[,\s\d]*$/.test(text)) {
-                        characteristics['Размер'] = text;
-                    } else if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
-                               text.includes('розов') || text.includes('красн') || text.includes('син') || 
-                               text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
-                        characteristics['Цвет'] = text;
+                    let processedText = text;
+                    
+                    // Применяем универсальное разделение
+                    if (CONFIG.characteristics.splitConcatenated) {
+                        processedText = universalSplit(text);
+                    }
+                    
+                    // Определяем название характеристики автоматически
+                    // Если текст содержит слова, похожие на цвета
+                    if (text.includes('сирен') || text.includes('зелен') || text.includes('желт') || 
+                        text.includes('розов') || text.includes('красн') || text.includes('син') || 
+                        text.includes('бел') || text.includes('черн') || text.includes('фиолет')) {
+                        characteristics['Цвет'] = processedText;
+                    } 
+                    // Если только цифры (размеры)
+                    else if (/^\d+$/.test(text)) {
+                        characteristics['Размер'] = processedText;
+                    } 
+                    // Всё остальное — сохраняем как общую характеристику
+                    else {
+                        characteristics['Характеристика ' + (index + 1)] = processedText;
                     }
                 }
             });
@@ -336,40 +432,91 @@
             return null;
         }
 
-        addToCartFromPopup(btn) {
+                addToCartFromPopup(btn) {
             const uid = btn.dataset.uid;
             const title = btn.dataset.title || '';
-            const url = btn.dataset.url || '';
             const product = this.products.find(p => p.uid === uid);
-            if (!product) { this.showNotification('Товар не найден', 'error'); return; }
+            
+            if (!product) { 
+                this.showNotification('Товар не найден', 'error'); 
+                return; 
+            }
+            
+            log('Добавление в корзину:', { uid, title });
+            
+            // Способ 1: Найти кнопку на странице и кликнуть
             const cardOnPage = this.findCardByUid(uid);
             if (cardOnPage) {
                 const orderBtn = this.findOrderButtonInCard(cardOnPage);
-                if (orderBtn) { orderBtn.click(); this.animateCartButtonInPopup(btn); this.showNotification(`"${title}" — открытие формы заказа`, 'success'); return; }
+                if (orderBtn) { 
+                    log('Найдена кнопка на странице, кликаем');
+                    orderBtn.click(); 
+                    this.animateCartButtonInPopup(btn); 
+                    this.showNotification(`"${title}" добавлен в корзину`, 'success'); 
+                    return; 
+                }
             }
+            
+            // Способ 2: Создаём временную кнопку с правильными data-атрибутами
             if (product.orderButtonData && product.orderButtonData.outerHTML) {
                 try {
+                    // Создаём контейнер
                     const tempContainer = document.createElement('div');
                     tempContainer.innerHTML = product.orderButtonData.outerHTML;
-                    tempContainer.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:none;';
-                    document.body.appendChild(tempContainer);
-                    tempContainer.firstElementChild.click();
+                    const tempBtn = tempContainer.querySelector('button, a');
+                    
+                    if (!tempBtn) {
+                        throw new Error('Кнопка не найдена в outerHTML');
+                    }
+                    
+                    // ДОБАВЛЯЕМ data-product-id и data-variation-id
+                    tempBtn.setAttribute('data-product-id', uid);
+                    tempBtn.setAttribute('data-product-uid', uid);
+                    if (product.orderButtonData.variationId) {
+                        tempBtn.setAttribute('data-variation-id', product.orderButtonData.variationId);
+                    }
+                    if (product.orderButtonData.productId) {
+                        tempBtn.setAttribute('data-product-id', product.orderButtonData.productId);
+                    }
+                    
+                    // Клонируем кнопку
+                    const clonedBtn = tempBtn.cloneNode(true);
+                    
+                    // Добавляем на страницу (невидимо)
+                    clonedBtn.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;pointer-events:auto;z-index:-1;';
+                    document.body.appendChild(clonedBtn);
+                    
+                    // Кликаем
+                    log('Кликаем по временной кнопке с UID:', uid);
+                    clonedBtn.click();
+                    
+                    // Анимация и уведомление
                     this.animateCartButtonInPopup(btn);
-                    this.showNotification(`"${title}" — открытие формы заказа`, 'success');
-                    setTimeout(() => tempContainer.parentNode?.removeChild(tempContainer), 1000);
+                    this.showNotification(`"${title}" добавлен в корзину`, 'success');
+                    
+                    // Удаляем через 500ms
+                    setTimeout(() => {
+                        if (clonedBtn.parentNode) {
+                            clonedBtn.parentNode.removeChild(clonedBtn);
+                        }
+                    }, 500);
+                    
                     return;
-                } catch (e) { log('Ошибка временной кнопки:', e); }
+                } catch (e) { 
+                    log('Ошибка временной кнопки:', e);
+                }
             }
-            let apiUsed = false;
-            if (window.TildaCommerce?.addProductToCart) { try { window.TildaCommerce.addProductToCart(uid, 1, product.orderButtonData?.variationId || ''); apiUsed = true; } catch (e) {} }
-            if (!apiUsed && window.tcart?.add) { try { window.tcart.add({ productUid: uid, quantity: 1 }); apiUsed = true; } catch (e) {} }
-            if (!apiUsed && window.TildaShoppingCart?.add) { try { window.TildaShoppingCart.add(uid, 1); apiUsed = true; } catch (e) {} }
-            if (!apiUsed && typeof jQuery !== 'undefined') { try { jQuery(document).trigger('addProductToCart', { productId: uid, quantity: 1 }); apiUsed = true; } catch (e) {} }
-            if (apiUsed) { this.animateCartButtonInPopup(btn); this.showNotification(`"${title}" добавлен в корзину`, 'success'); return; }
-            if (url) { window.open(url, '_blank'); this.showNotification(`Откройте "${title}" для оформления заказа`, 'info'); return; }
+            
+            // Способ 3: Открываем страницу товара
+            if (product.url) {
+                window.open(product.url, '_blank');
+                this.showNotification(`Откройте "${title}" для добавления в корзину`, 'info');
+                return;
+            }
+            
             this.showNotification('Не удалось добавить товар в корзину', 'error');
         }
-
+        
         animateCartButtonInPopup(btn) {
             const originalHTML = btn.innerHTML;
             btn.classList.add('added');
@@ -405,15 +552,43 @@
 
         setupEventListeners() {
             document.body.addEventListener('click', (e) => {
+                // Останавливаем всплытие для ссылок на товар
+                const productLink = e.target.closest('.comparison-table__product-title-link, .comparison-table__product-image-link');
+                if (productLink) {
+                    e.stopPropagation();
+                    return;
+                }
+                
                 const compareBtn = e.target.closest('.comparison-btn');
-                if (compareBtn) { e.preventDefault(); e.stopPropagation(); this.toggleProduct(compareBtn); return; }
+                if (compareBtn) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.toggleProduct(compareBtn); 
+                    return; 
+                }
+                
                 const removeBtn = e.target.closest('.comparison-table__remove');
-                if (removeBtn) { e.preventDefault(); e.stopPropagation(); this.removeProductFromPopup(removeBtn.dataset.uid); return; }
+                if (removeBtn) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.removeProductFromPopup(removeBtn.dataset.uid); 
+                    return; 
+                }
+                
                 const cartBtn = e.target.closest('.comparison-table__add-to-cart');
-                if (cartBtn) { e.preventDefault(); e.stopPropagation(); this.addToCartFromPopup(cartBtn); return; }
+                if (cartBtn) { 
+                    e.preventDefault(); 
+                    e.stopPropagation(); 
+                    this.addToCartFromPopup(cartBtn); 
+                    return; 
+                }
             });
+            
             window.addEventListener('storage', (e) => {
-                if (e.key === CONFIG.storageKey) { this.products = this.loadFromStorage(); this.updateFloatingButton(); }
+                if (e.key === CONFIG.storageKey) { 
+                    this.products = this.loadFromStorage(); 
+                    this.updateFloatingButton(); 
+                }
             });
         }
 
@@ -500,7 +675,7 @@
             this.setupPopupEvents(popup);
         }
 
-        generateComparisonHTML() {
+                generateComparisonHTML() {
             if (this.products.length === 0) return '<div class="comparison-empty">Нет товаров для сравнения</div>';
             const allKeys = new Set();
             this.products.forEach(product => { if (product.characteristics) Object.keys(product.characteristics).forEach(key => allKeys.add(key)); });
@@ -517,7 +692,26 @@
             this.products.forEach(product => {
                 const safeTitle = (product.title || '').replace(/"/g, '&quot;');
                 const safeUrl = (product.url || '').replace(/"/g, '&quot;');
-                html += `<th class="comparison-table__product"><div class="comparison-table__product-image">${product.image ? `<img src="${product.image}" alt="${safeTitle}">` : '<div class="no-image">Нет фото</div>'}</div><div class="comparison-table__product-title">${product.title}</div>${product.description ? `<div class="comparison-table__product-descr">${product.description}</div>` : ''}<div class="comparison-table__product-price">${formatPrice(product.price)}</div><div class="comparison-table__product-actions"><button class="comparison-table__add-to-cart" data-uid="${product.uid}" data-title="${safeTitle}" data-url="${safeUrl}" title="Добавить в корзину"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.70711 15.2929C4.07714 15.9229 4.52331 17 5.41421 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 19C9 20.1046 8.10457 21 7 21C5.89543 21 5 20.1046 5 19C5 17.8954 5.89543 17 7 17C8.10457 17 9 17.8954 9 19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round"/></svg><span>В корзину</span></button><button class="comparison-table__remove" data-uid="${product.uid}" title="Удалить из сравнения"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6H5H21" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/><path d="M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6M19 6V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V6H19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg><span>Удалить</span></button></div></th>`;
+                html += `<th class="comparison-table__product">
+                    <a href="${safeUrl}" target="_blank" class="comparison-table__product-image-link" title="Открыть страницу товара">
+                        <div class="comparison-table__product-image">
+                            ${product.image ? `<img src="${product.image}" alt="${safeTitle}">` : '<div class="no-image">Нет фото</div>'}
+                        </div>
+                    </a>
+                    <a href="${safeUrl}" target="_blank" class="comparison-table__product-title-link" title="Открыть страницу товара">${product.title}</a>
+                    ${product.description ? `<div class="comparison-table__product-descr">${product.description}</div>` : ''}
+                    <div class="comparison-table__product-price">${formatPrice(product.price)}</div>
+                    <div class="comparison-table__product-actions">
+                        <button class="comparison-table__add-to-cart" data-uid="${product.uid}" data-title="${safeTitle}" data-url="${safeUrl}" title="Добавить в корзину">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 3H5L5.4 5M7 13H17L21 5H5.4M7 13L5.4 5M7 13L4.70711 15.2929C4.07714 15.9229 4.52331 17 5.41421 17H17M17 17C15.8954 17 15 17.8954 15 19C15 20.1046 15.8954 21 17 21C18.1046 21 19 20.1046 19 19C19 17.8954 18.1046 17 17 17ZM9 19C9 20.1046 8.10457 21 7 21C5.89543 21 5 20.1046 5 19C5 17.8954 5.89543 17 7 17C8.10457 17 9 17.8954 9 19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square" stroke-linejoin="round"/></svg>
+                            <span>В корзину</span>
+                        </button>
+                        <button class="comparison-table__remove" data-uid="${product.uid}" title="Удалить из сравнения">
+                            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 6H5H21" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/><path d="M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6M19 6V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V6H19Z" stroke="currentColor" stroke-width="1.75" stroke-linecap="square"/></svg>
+                            <span>Удалить</span>
+                        </button>
+                    </div>
+                </th>`;
             });
             html += '</tr></thead><tbody><tr><td class="comparison-table__char-name">Цена</td>';
             this.products.forEach(product => { html += `<td class="comparison-table__char-value">${formatPrice(product.price)}</td>`; });
@@ -534,10 +728,23 @@
             html += '</tbody></table></div>';
             return html;
         }
-
+        
         setupPopupEvents(popup) {
-            popup.querySelector('.comparison-popup__close').addEventListener('click', () => popup.remove());
-            popup.querySelector('.comparison-popup__overlay').addEventListener('click', () => popup.remove());
+            const closeBtn = popup.querySelector('.comparison-popup__close');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', () => popup.remove());
+            }
+            
+            const overlay = popup.querySelector('.comparison-popup__overlay');
+            if (overlay) {
+                overlay.addEventListener('click', (e) => {
+                    const isProductLink = e.target.closest('.comparison-table__product-title-link, .comparison-table__product-image-link');
+                    if (!isProductLink) {
+                        popup.remove();
+                    }
+                });
+            }
+            
             const toggle = popup.querySelector('#showOnlyDifferences');
             if (toggle) {
                 toggle.addEventListener('change', (e) => {
@@ -546,17 +753,22 @@
                     if (body) body.innerHTML = this.generateComparisonHTML();
                 });
             }
-            popup.querySelector('.comparison-popup__clear').addEventListener('click', () => {
-                if (confirm('Удалить все товары из сравнения?')) {
-                    this.products = [];
-                    this.saveToStorage();
-                    this.updateAllButtons();
-                    this.updateFloatingButton();
-                    popup.remove();
-                    this.showNotification('Сравнение очищено', 'info');
-                }
-            });
+            
+            const clearBtn = popup.querySelector('.comparison-popup__clear');
+            if (clearBtn) {
+                clearBtn.addEventListener('click', () => {
+                    if (confirm('Удалить все товары из сравнения?')) {
+                        this.products = [];
+                        this.saveToStorage();
+                        this.updateAllButtons();
+                        this.updateFloatingButton();
+                        popup.remove();
+                        this.showNotification('Сравнение очищено', 'info');
+                    }
+                });
+            }
         }
+        
 
         updateAllButtons() {
             document.querySelectorAll('.comparison-btn').forEach(btn => {
