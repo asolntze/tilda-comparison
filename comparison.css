@@ -556,6 +556,11 @@
     transition: all 0.3s var(--cmp-transition-ease);
     font-weight: 500;
     font-family: var(--cmp-font);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 400px;
 }
 
 .comparison-notification.show {
@@ -563,10 +568,29 @@
     transform: translateX(0);
 }
 
-.comparison-notification--success { background: var(--cmp-success); }
-.comparison-notification--error { background: var(--cmp-error); }
-.comparison-notification--warning { background: var(--cmp-warning); }
-.comparison-notification--info { background: var(--cmp-info); }
+/* Успех (добавлено в корзину) */
+.comparison-notification--success { 
+    background: var(--cmp-success);
+    color: var(--cmp-success-text, #ffffff);
+}
+
+/* Ошибка */
+.comparison-notification--error { 
+    background: var(--cmp-error);
+    color: var(--cmp-error-text, #ffffff);
+}
+
+/* Предупреждение */
+.comparison-notification--warning { 
+    background: var(--cmp-warning);
+    color: var(--cmp-warning-text, #ffffff);
+}
+
+/* Информация (удалено из сравнения) */
+.comparison-notification--info { 
+    background: var(--cmp-info);
+    color: var(--cmp-info-text, #ffffff);
+}
 
 /* ============================================
    СТРАНИЦА СРАВНЕНИЯ (полноэкранная)
