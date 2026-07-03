@@ -769,29 +769,6 @@
             }
         }
         
-            popup.querySelector('.comparison-popup__clear').addEventListener('click', () => {
-                if (confirm('Удалить все товары из сравнения?')) {
-                    this.products = [];
-                    this.saveToStorage();
-                    this.updateAllButtons();
-                    this.updateFloatingButton();
-                    popup.remove();
-                    this.showNotification('Сравнение очищено', 'info');
-                }
-            });
-        }
-        
-            popup.querySelector('.comparison-popup__clear').addEventListener('click', () => {
-                if (confirm('Удалить все товары из сравнения?')) {
-                    this.products = [];
-                    this.saveToStorage();
-                    this.updateAllButtons();
-                    this.updateFloatingButton();
-                    popup.remove();
-                    this.showNotification('Сравнение очищено', 'info');
-                }
-            });
-        }
 
         updateAllButtons() {
             document.querySelectorAll('.comparison-btn').forEach(btn => {
