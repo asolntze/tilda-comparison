@@ -1,6 +1,6 @@
 LICENSE AGREEMENT
 Модуль сравнения товаров для Тильды
-Copyright (c) 2026 [Твоё Имя / Ник]
+Copyright (c) 2026 [@asolntze]
 
 Все права защищены.
 
