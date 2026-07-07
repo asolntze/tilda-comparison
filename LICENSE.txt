@@ -1,4 +1,4 @@
-LICENSE AGREEMENT
+LICENSE AGREEMENT | ЛИЦЕНЗИОННОЕ СОГЛАШЕНИЕ
 Модуль сравнения товаров для Тильды
 Copyright (c) 2026 [@asolntze]
 
